@@ -42,10 +42,10 @@ class LowStockAlerts extends Component
                         return $q->where('current_stock', 0);
                     case 'low':
                         return $q->where('current_stock', '>', 0)
-                            ->whereRaw('current_stock <= (min_stock_level * 0.5)');
+                            ->whereRaw('current_stock <= (products.min_stock_level * 0.5)');
                     case 'warning':
-                        return $q->whereRaw('current_stock > (min_stock_level * 0.5)')
-                            ->whereRaw('current_stock <= min_stock_level');
+                        return $q->whereRaw('current_stock > (products.min_stock_level * 0.5)')
+                            ->whereRaw('current_stock <= products.min_stock_level');
                 }
             })
             ->orderBy('current_stock')
@@ -75,7 +75,7 @@ class LowStockAlerts extends Component
             ->where('current_stock', 0)->count();
         $totalValue = LowStockAlert::join('products', 'low_stock_alerts.product_id', '=', 'products.id')
             ->where('low_stock_alerts.status', 'active')
-            ->selectRaw('SUM((min_stock_level - current_stock) * cost_price) as total')
+            ->selectRaw('SUM((products.min_stock_level - current_stock) * cost_price) as total')
             ->value('total') ?? 0;
 
         return view('livewire.inventory.low-stock-alerts', [

@@ -12,11 +12,16 @@
 
     {{-- Filters --}}
     <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-6">
-        <x-mary-select placeholder="All Products" :options="$filterOptions['products']" wire:model.live="productFilter" />
-        <x-mary-select placeholder="All Warehouses" :options="$filterOptions['warehouses']" wire:model.live="warehouseFilter" />
-        <x-mary-select placeholder="All Users" :options="$filterOptions['users']" wire:model.live="userFilter" />
-        <x-mary-select placeholder="All Types" :options="$filterOptions['types']" wire:model.live="typeFilter" />
-        <x-mary-select placeholder="All Dates" :options="$filterOptions['dates']" wire:model.live="dateFilter" />
+        <x-mary-select placeholder="All Products" :options="$filterOptions['products']" wire:model.live="productFilter" option-value="value"
+            option-label="label" />
+        <x-mary-select placeholder="All Warehouses" :options="$filterOptions['warehouses']" wire:model.live="warehouseFilter"
+            option-value="value" option-label="label" />
+        <x-mary-select placeholder="All Users" :options="$filterOptions['users']" wire:model.live="userFilter" option-value="value"
+            option-label="label" />
+        <x-mary-select placeholder="All Types" :options="$filterOptions['types']" wire:model.live="typeFilter" option-value="value"
+            option-label="label" />
+        <x-mary-select placeholder="All Dates" :options="$filterOptions['dates']" wire:model.live="dateFilter" option-value="value"
+            option-label="label" />
         <x-mary-button icon="o-x-mark" wire:click="clearFilters" class="btn-ghost">
             Clear Filters
         </x-mary-button>
@@ -59,8 +64,6 @@
                             </td>
                             <td>
                                 <div class="flex items-center gap-2">
-                                    <x-icon name="{{ $this->getMovementIcon($movement->type) }}"
-                                        class="w-4 h-4 text-{{ $this->getMovementTypeClass($movement->type) }}" />
                                     <x-mary-badge value="{{ ucfirst(str_replace('_', ' ', $movement->type)) }}"
                                         class="badge-{{ $this->getMovementTypeClass($movement->type) }} badge-sm" />
                                 </div>

@@ -33,10 +33,14 @@
 
     {{-- Filters --}}
     <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-5">
-        <x-mary-select placeholder="All Warehouses" :options="$filterOptions['warehouses']" wire:model.live="warehouseFilter" />
-        <x-mary-select placeholder="All Categories" :options="$filterOptions['categories']" wire:model.live="categoryFilter" />
-        <x-mary-select placeholder="Stock Status" :options="$filterOptions['stock']" wire:model.live="stockFilter" />
-        <x-mary-select placeholder="Product Status" :options="$filterOptions['status']" wire:model.live="statusFilter" />
+        <x-mary-select placeholder="All Warehouses" :options="$filterOptions['warehouses']" wire:model.live="warehouseFilter"
+            option-value="value" option-label="label" />
+        <x-mary-select placeholder="All Categories" :options="$filterOptions['categories']" wire:model.live="categoryFilter"
+            option-value="value" option-label="label" />
+        <x-mary-select placeholder="All Stock Levels" :options="$filterOptions['stock']" wire:model.live="stockFilter"
+            option-value="value" option-label="label" />
+        <x-mary-select placeholder="Product Status" :options="$filterOptions['status']" wire:model.live="statusFilter"
+            option-value="value" option-label="label" />
         <x-mary-button icon="o-x-mark" wire:click="clearFilters" class="btn-ghost">
             Clear Filters
         </x-mary-button>
@@ -221,7 +225,8 @@
                     <x-mary-select label="Adjustment Type" :options="[
                         ['value' => 'in', 'label' => 'Stock In (+)'],
                         ['value' => 'out', 'label' => 'Stock Out (-)'],
-                    ]" wire:model="adjustment_type" />
+                    ]" wire:model="adjustment_type"
+                        option-value="value" option-label="label" />
 
                     <x-mary-input label="Quantity" wire:model="adjustment_quantity" type="number" min="1"
                         placeholder="Enter quantity" />

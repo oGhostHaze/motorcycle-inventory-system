@@ -14,7 +14,8 @@
 
     {{-- Filters --}}
     <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-3">
-        <x-mary-select placeholder="Filter by status" :options="$statusOptions" wire:model.live="statusFilter" />
+        <x-mary-select placeholder="Filter by status" :options="$statusOptions" wire:model.live="statusFilter"
+            option-value="value" option-label="label" />
         <div class="md:col-span-2 md:flex md:justify-end">
             <x-mary-button icon="o-x-mark" wire:click="clearFilters" class="btn-ghost">
                 Clear Filters
