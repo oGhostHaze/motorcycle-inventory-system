@@ -14,9 +14,12 @@
 
     {{-- Filters --}}
     <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-4">
-        <x-mary-select placeholder="All Countries" :options="$filterOptions['countries']" wire:model.live="countryFilter" />
-        <x-mary-select placeholder="All Status" :options="$filterOptions['statuses']" wire:model.live="statusFilter" />
-        <x-mary-select placeholder="All Ratings" :options="$filterOptions['ratings']" wire:model.live="ratingFilter" />
+        <x-mary-select placeholder="All Countries" :options="$filterOptions['countries']" wire:model.live="countryFilter"
+            option-value="value" option-label="label" />
+        <x-mary-select placeholder="All Status" :options="$filterOptions['statuses']" wire:model.live="statusFilter" option-value="value"
+            option-label="label" />
+        <x-mary-select placeholder="All Ratings" :options="$filterOptions['ratings']" wire:model.live="ratingFilter" option-value="value"
+            option-label="label" />
         <x-mary-button icon="o-x-mark" wire:click="clearFilters" class="btn-ghost">
             Clear Filters
         </x-mary-button>

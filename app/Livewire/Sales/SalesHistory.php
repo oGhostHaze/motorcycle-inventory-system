@@ -54,7 +54,7 @@ class SalesHistory extends Component
                     case 'today':
                         return $q->whereDate('created_at', today());
                     case 'yesterday':
-                        return $q->whereDate('created_at', yesterday());
+                        return $q->whereDate('created_at', now()->subDay());
                     case 'week':
                         return $q->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
                     case 'month':
@@ -71,9 +71,6 @@ class SalesHistory extends Component
         $users = User::where('is_active', true)->orderBy('name')->get();
 
         $filterOptions = [
-            'customers' => $customers->map(fn($c) => ['value' => $c->id, 'label' => $c->name]),
-            'warehouses' => $warehouses->map(fn($w) => ['value' => $w->id, 'label' => $w->name]),
-            'users' => $users->map(fn($u) => ['value' => $u->id, 'label' => $u->name]),
             'statuses' => [
                 ['value' => '', 'label' => 'All Status'],
                 ['value' => 'draft', 'label' => 'Draft'],
@@ -107,6 +104,9 @@ class SalesHistory extends Component
 
         return view('livewire.sales.sales-history', [
             'sales' => $sales,
+            'customers' => $customers,
+            'warehouses' => $warehouses,
+            'users' => $users,
             'filterOptions' => $filterOptions,
             'totalSales' => $totalSales,
             'totalAmount' => $totalAmount,
@@ -207,7 +207,7 @@ class SalesHistory extends Component
                     case 'today':
                         return $q->whereDate('created_at', today());
                     case 'yesterday':
-                        return $q->whereDate('created_at', yesterday());
+                        return $q->whereDate('created_at', now()->subDay());
                     case 'week':
                         return $q->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
                     case 'month':

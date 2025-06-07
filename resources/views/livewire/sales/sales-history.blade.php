@@ -25,12 +25,20 @@
 
     {{-- Filters --}}
     <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-7">
-        <x-mary-select placeholder="All Customers" :options="$filterOptions['customers']" wire:model.live="customerFilter" />
-        <x-mary-select placeholder="All Warehouses" :options="$filterOptions['warehouses']" wire:model.live="warehouseFilter" />
-        <x-mary-select placeholder="All Users" :options="$filterOptions['users']" wire:model.live="userFilter" />
-        <x-mary-select placeholder="All Status" :options="$filterOptions['statuses']" wire:model.live="statusFilter" />
-        <x-mary-select placeholder="Payment Method" :options="$filterOptions['paymentMethods']" wire:model.live="paymentMethodFilter" />
-        <x-mary-select placeholder="Date Range" :options="$filterOptions['dates']" wire:model.live="dateFilter" />
+        <x-mary-select placeholder="All Customers" :options="$customers" option-value="id" option-label="name"
+            wire:model.live="customerFilter" />
+        <x-mary-select placeholder="All Warehouses" :options="$warehouses" option-value="id" option-label="name"
+            wire:model.live="warehouseFilter" />
+        <x-mary-select placeholder="All Users" :options="$users" option-value="id" option-label="name"
+            wire:model.live="userFilter" />
+
+        <x-mary-select placeholder="All Status" :options="$filterOptions['statuses']" wire:model.live="statusFilter" option-value="value"
+            option-label="label" />
+        <x-mary-select placeholder="Payment Method" :options="$filterOptions['paymentMethods']" wire:model.live="paymentMethodFilter"
+            option-value="value" option-label="label" />
+        <x-mary-select placeholder="Date Range" :options="$filterOptions['dates']" wire:model.live="dateFilter" option-value="value"
+            option-label="label" />
+
         <x-mary-button icon="o-x-mark" wire:click="clearFilters" class="btn-ghost">
             Clear
         </x-mary-button>

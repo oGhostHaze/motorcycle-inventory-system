@@ -14,10 +14,14 @@
 
     {{-- Filters --}}
     <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-5">
-        <x-mary-select placeholder="All Suppliers" :options="$filterOptions['suppliers']" wire:model.live="supplierFilter" />
-        <x-mary-select placeholder="All Warehouses" :options="$filterOptions['warehouses']" wire:model.live="warehouseFilter" />
-        <x-mary-select placeholder="All Status" :options="$filterOptions['statuses']" wire:model.live="statusFilter" />
-        <x-mary-select placeholder="All Dates" :options="$filterOptions['dates']" wire:model.live="dateFilter" />
+        <x-mary-select placeholder="All Suppliers" :options="$filterOptions['suppliers']" wire:model.live="supplierFilter"
+            option-value="value" option-label="label" />
+        <x-mary-select placeholder="All Warehouses" :options="$filterOptions['warehouses']" wire:model.live="warehouseFilter"
+            option-value="value" option-label="label" />
+        <x-mary-select placeholder="All Status" :options="$filterOptions['statuses']" wire:model.live="statusFilter" option-value="value"
+            option-label="label" />
+        <x-mary-select placeholder="All Dates" :options="$filterOptions['dates']" wire:model.live="dateFilter" option-value="value"
+            option-label="label" />
         <x-mary-button icon="o-x-mark" wire:click="clearFilters" class="btn-ghost">
             Clear Filters
         </x-mary-button>
