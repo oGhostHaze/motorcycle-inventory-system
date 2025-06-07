@@ -156,11 +156,11 @@
         <div class="space-y-6">
             {{-- Basic Information --}}
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <x-mary-select label="Supplier" :options="$suppliers->map(fn($s) => ['value' => $s->id, 'label' => $s->name])" wire:model="supplier_id"
-                    placeholder="Select supplier" />
+                <x-mary-select label="Supplier" :options="$suppliers->map(fn($s) => ['value' => $s->id, 'label' => $s->name])" wire:model="supplier_id" placeholder="Select supplier"
+                    option-value="value" option-label="label" />
 
                 <x-mary-select label="Warehouse" :options="$warehouses->map(fn($w) => ['value' => $w->id, 'label' => $w->name])" wire:model="warehouse_id"
-                    placeholder="Select warehouse" />
+                    placeholder="Select warehouse" option-value="value" option-label="label" />
 
                 <div class="flex items-center">
                     <!-- Placeholder for future features -->
@@ -188,8 +188,8 @@
                                 <div class="grid items-end grid-cols-5 gap-3">
                                     <x-mary-select label="Product" :options="$products->map(
                                         fn($p) => ['value' => $p->id, 'label' => $p->name . ' (' . $p->sku . ')'],
-                                    )"
-                                        wire:model="items.{{ $index }}.product_id"
+                                    )" option-value="value"
+                                        option-label="label" wire:model="items.{{ $index }}.product_id"
                                         placeholder="Select product" />
 
                                     <x-mary-input label="Quantity" wire:model="items.{{ $index }}.quantity"

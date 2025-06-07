@@ -205,7 +205,7 @@
 
     {{-- Supplier Products Modal --}}
     <x-mary-modal wire:model="showProductsModal" title="Manage Supplier Products"
-        subtitle="Associate products with {{ $selectedSupplier?->name }}">
+        subtitle="Associate products with {{ $selectedSupplier?->name }}" box-class="w-11/12 max-w-5xl ">
 
         @if ($selectedSupplier)
             <div class="space-y-6">
@@ -214,7 +214,7 @@
                     <h4 class="mb-4 font-semibold">Add Product</h4>
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-6">
                         <x-mary-select label="Product" :options="$products->map(fn($p) => ['value' => $p->id, 'label' => $p->name])" wire:model="selectedProduct"
-                            placeholder="Select product" />
+                            placeholder="Select product" option-value="value" option-label="label" />
 
                         <x-mary-input label="Supplier SKU" wire:model="supplier_sku" placeholder="SKU" />
 

@@ -36,6 +36,18 @@ class Supplier extends Model
         return $this->hasMany(PurchaseOrder::class);
     }
 
+    public function supplierProducts()
+    {
+        return $this->hasMany(SupplierProduct::class);
+    }
+
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'supplier_products')
+            ->withPivot('supplier_sku', 'supplier_part_number', 'supplier_price', 'minimum_order_quantity', 'lead_time_days', 'is_preferred', 'is_active')
+            ->withTimestamps();
+    }
+
     protected static function boot()
     {
         parent::boot();
