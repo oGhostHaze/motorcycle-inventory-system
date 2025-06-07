@@ -1,0 +1,178 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
+class Product extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'category_id',
+        'subcategory_id',
+        'product_brand_id',
+        'name',
+        'slug',
+        'sku',
+        'barcode',
+        'rfid_tag',
+        'description',
+        'specifications',
+        'part_number',
+        'oem_number',
+        'cost_price',
+        'selling_price',
+        'wholesale_price',
+        'weight',
+        'dimensions',
+        'color',
+        'size',
+        'material',
+        'warranty_months',
+        'track_serial',
+        'track_warranty',
+        'min_stock_level',
+        'max_stock_level',
+        'reorder_point',
+        'reorder_quantity',
+        'status',
+        'images',
+        'internal_notes'
+    ];
+
+    protected $casts = [
+        'cost_price' => 'decimal:2',
+        'selling_price' => 'decimal:2',
+        'wholesale_price' => 'decimal:2',
+        'weight' => 'decimal:3',
+        'warranty_months' => 'integer',
+        'track_serial' => 'boolean',
+        'track_warranty' => 'boolean',
+        'min_stock_level' => 'integer',
+        'max_stock_level' => 'integer',
+        'reorder_point' => 'integer',
+        'reorder_quantity' => 'integer',
+        'specifications' => 'array',
+        'images' => 'array',
+    ];
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function subcategory()
+    {
+        return $this->belongsTo(Subcategory::class);
+    }
+
+    public function brand()
+    {
+        return $this->belongsTo(ProductBrand::class, 'product_brand_id');
+    }
+
+    public function variants()
+    {
+        return $this->hasMany(ProductVariant::class);
+    }
+
+    public function inventory()
+    {
+        return $this->hasMany(Inventory::class);
+    }
+
+    public function compatibleModels()
+    {
+        return $this->belongsToMany(MotorcycleModel::class, 'product_compatibility')
+            ->withPivot('year_from', 'year_to', 'notes')
+            ->withTimestamps();
+    }
+
+    public function serialNumbers()
+    {
+        return $this->hasMany(SerialNumber::class);
+    }
+
+    public function stockMovements()
+    {
+        return $this->hasMany(StockMovement::class);
+    }
+
+    public function supplierProducts()
+    {
+        return $this->hasMany(SupplierProduct::class);
+    }
+
+    public function priceHistory()
+    {
+        return $this->hasMany(PriceHistory::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(ProductReview::class);
+    }
+
+    public function warrantyClaims()
+    {
+        return $this->hasMany(WarrantyClaim::class);
+    }
+
+    public function getTotalStockAttribute()
+    {
+        return $this->inventory()->sum('quantity_on_hand');
+    }
+
+    public function getAvailableStockAttribute()
+    {
+        return $this->inventory()->sum('quantity_available');
+    }
+
+    public function getAverageRatingAttribute()
+    {
+        return $this->reviews()->where('is_approved', true)->avg('rating') ?? 0;
+    }
+
+    public function getTotalReviewsAttribute()
+    {
+        return $this->reviews()->where('is_approved', true)->count();
+    }
+
+    public function isLowStock()
+    {
+        return $this->total_stock <= $this->min_stock_level;
+    }
+
+    public function getPreferredSupplierAttribute()
+    {
+        return $this->supplierProducts()
+            ->where('is_preferred', true)
+            ->where('is_active', true)
+            ->with('supplier')
+            ->first()?->supplier;
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+        static::creating(function ($model) {
+            $model->slug = Str::slug($model->name);
+            if (empty($model->sku)) {
+                $model->sku = 'SKU-' . strtoupper(Str::random(8));
+            }
+        });
+
+        static::updating(function ($model) {
+            // Log price changes
+            if ($model->isDirty(['cost_price', 'selling_price', 'wholesale_price'])) {
+                $oldValues = $model->getOriginal();
+                $newValues = $model->getAttributes();
+
+                PriceHistory::logPriceChange($model, $oldValues, $newValues);
+            }
+        });
+    }
+}

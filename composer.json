@@ -9,6 +9,7 @@
         "php": "^8.2",
         "akaunting/laravel-money": "^6.0",
         "barryvdh/laravel-dompdf": "^3.1",
+        "blade-ui-kit/blade-heroicons": "^2.6",
         "doctrine/dbal": "^4.2",
         "endroid/qr-code": "^6.0",
         "intervention/image": "^3.11",
@@ -19,6 +20,7 @@
         "livewire/livewire": "^3.6",
         "livewire/volt": "^1.7",
         "maatwebsite/excel": "^3.1",
+        "picqer/php-barcode-generator": "^3.2",
         "ramsey/uuid": "^4.8",
         "robsontenorio/mary": "^2.4"
     },
