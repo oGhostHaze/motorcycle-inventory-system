@@ -154,7 +154,7 @@
 
     {{-- Create/Edit Supplier Modal --}}
     <x-mary-modal wire:model="showModal" title="{{ $editMode ? 'Edit Supplier' : 'Create New Supplier' }}"
-        subtitle="Manage supplier information and details" class="w-11/12 max-w-3xl">
+        subtitle="Manage supplier information and details">
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             {{-- Basic Information --}}
@@ -205,7 +205,7 @@
 
     {{-- Supplier Products Modal --}}
     <x-mary-modal wire:model="showProductsModal" title="Manage Supplier Products"
-        subtitle="Associate products with {{ $selectedSupplier?->name }}" class="w-11/12 max-w-5xl">
+        subtitle="Associate products with {{ $selectedSupplier?->name }}">
 
         @if ($selectedSupplier)
             <div class="space-y-6">

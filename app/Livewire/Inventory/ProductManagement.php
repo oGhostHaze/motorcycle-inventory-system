@@ -59,6 +59,8 @@ class ProductManagement extends Component
     public string $statusFilter = '';
     public string $stockFilter = '';
 
+    public bool $showViewModal = false;
+
     // Inventory fields for new products
     public array $warehouseStock = [];
 
@@ -317,6 +319,28 @@ class ProductManagement extends Component
     public function generateBarcode()
     {
         $this->barcode = '8' . str_pad(mt_rand(1, 999999999999), 12, '0', STR_PAD_LEFT);
+    }
+
+    public function viewProduct($productId)
+    {
+        $product = Product::with([
+            'category',
+            'subcategory',
+            'brand',
+            'inventory.warehouse',
+            'stockMovements' => function ($query) {
+                $query->orderBy('created_at', 'desc')->limit(10);
+            },
+            'supplierProducts.supplier'
+        ])->find($productId);
+
+        if (!$product) {
+            $this->error('Product not found.');
+            return;
+        }
+
+        $this->selectedProduct = $product;
+        $this->showViewModal = true;
     }
 
     public function clearFilters()

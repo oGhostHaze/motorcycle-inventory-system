@@ -123,7 +123,7 @@
 
     {{-- Create/Edit Modal --}}
     <x-mary-modal wire:model="showModal" title="{{ $editMode ? 'Edit Product' : 'Create New Product' }}"
-        subtitle="Manage product information and inventory" class="w-11/12 max-w-5xl">
+        subtitle="Manage product information and inventory">
 
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
             {{-- Basic Information --}}
@@ -261,5 +261,160 @@
             <x-mary-button label="{{ $editMode ? 'Update Product' : 'Create Product' }}" wire:click="save"
                 class="btn-primary" />
         </x-slot:actions>
+    </x-mary-modal>
+
+
+    {{-- View Product Details Modal --}}
+    <x-mary-modal wire:model="showViewModal" title="Product Details" subtitle="{{ $selectedProduct?->name }}">
+
+        @if ($selectedProduct)
+            <div class="space-y-6">
+                {{-- Basic Information --}}
+                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-semibold">Basic Information</h4>
+                        <div class="space-y-2">
+                            <div><strong>Name:</strong> {{ $selectedProduct->name }}</div>
+                            <div><strong>SKU:</strong> {{ $selectedProduct->sku }}</div>
+                            @if ($selectedProduct->barcode)
+                                <div><strong>Barcode:</strong> {{ $selectedProduct->barcode }}</div>
+                            @endif
+                            <div><strong>Category:</strong> {{ $selectedProduct->category?->name ?? 'No category' }}
+                            </div>
+                            @if ($selectedProduct->subcategory)
+                                <div><strong>Subcategory:</strong> {{ $selectedProduct->subcategory->name }}</div>
+                            @endif
+                            <div><strong>Brand:</strong> {{ $selectedProduct->brand?->name ?? 'No brand' }}</div>
+                            <div><strong>Status:</strong>
+                                <x-mary-badge value="{{ ucfirst($selectedProduct->status) }}"
+                                    class="badge-{{ $selectedProduct->status === 'active' ? 'success' : 'warning' }}" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-semibold">Pricing & Stock</h4>
+                        <div class="space-y-2">
+                            <div><strong>Cost Price:</strong> ₱{{ number_format($selectedProduct->cost_price, 2) }}
+                            </div>
+                            <div><strong>Selling Price:</strong>
+                                ₱{{ number_format($selectedProduct->selling_price, 2) }}</div>
+                            @if ($selectedProduct->wholesale_price)
+                                <div><strong>Wholesale Price:</strong>
+                                    ₱{{ number_format($selectedProduct->wholesale_price, 2) }}</div>
+                            @endif
+                            <div><strong>Total Stock:</strong> {{ $selectedProduct->total_stock }} units</div>
+                            <div><strong>Min Stock Level:</strong> {{ $selectedProduct->min_stock_level ?? 'Not set' }}
+                            </div>
+                            @if ($selectedProduct->max_stock_level)
+                                <div><strong>Max Stock Level:</strong> {{ $selectedProduct->max_stock_level }}</div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Description & Specifications --}}
+                @if ($selectedProduct->description || $selectedProduct->specifications)
+                    <div>
+                        <h4 class="mb-3 text-lg font-semibold">Description & Specifications</h4>
+                        @if ($selectedProduct->description)
+                            <div class="mb-3">
+                                <strong>Description:</strong>
+                                <p class="mt-1">{{ $selectedProduct->description }}</p>
+                            </div>
+                        @endif
+                        @if ($selectedProduct->specifications)
+                            <div>
+                                <strong>Specifications:</strong>
+                                <div class="mt-2 space-y-1">
+                                    @foreach ($selectedProduct->specifications as $key => $value)
+                                        <div class="flex justify-between p-2 rounded bg-base-200">
+                                            <span
+                                                class="font-medium">{{ ucfirst(str_replace('_', ' ', $key)) }}:</span>
+                                            <span>{{ $value }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+
+                {{-- Warehouse Stock Levels --}}
+                @if ($selectedProduct->inventory->count() > 0)
+                    <div>
+                        <h4 class="mb-3 text-lg font-semibold">Stock by Warehouse</h4>
+                        <div class="overflow-x-auto">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Warehouse</th>
+                                        <th>On Hand</th>
+                                        <th>Reserved</th>
+                                        <th>Available</th>
+                                        <th>Location</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($selectedProduct->inventory as $inventory)
+                                        <tr>
+                                            <td>{{ $inventory->warehouse->name }}</td>
+                                            <td class="font-semibold">{{ $inventory->quantity_on_hand }}</td>
+                                            <td class="text-warning">{{ $inventory->quantity_reserved }}</td>
+                                            <td class="font-semibold text-success">
+                                                {{ $inventory->quantity_available }}</td>
+                                            <td>{{ $inventory->location ?? '-' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Recent Stock Movements --}}
+                @if ($selectedProduct->stockMovements->count() > 0)
+                    <div>
+                        <h4 class="mb-3 text-lg font-semibold">Recent Stock Movements</h4>
+                        <div class="overflow-x-auto">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Quantity</th>
+                                        <th>User</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($selectedProduct->stockMovements as $movement)
+                                        <tr>
+                                            <td class="text-sm">{{ $movement->created_at->format('M d, H:i') }}</td>
+                                            <td>
+                                                <x-mary-badge value="{{ ucfirst($movement->type) }}"
+                                                    class="badge-{{ $movement->quantity_changed > 0 ? 'success' : 'error' }} badge-sm" />
+                                            </td>
+                                            <td
+                                                class="font-semibold {{ $movement->quantity_changed > 0 ? 'text-success' : 'text-error' }}">
+                                                {{ $movement->quantity_changed > 0 ? '+' : '' }}{{ $movement->quantity_changed }}
+                                            </td>
+                                            <td class="text-sm">{{ $movement->user?->name ?? 'System' }}</td>
+                                            <td class="text-xs">{{ Str::limit($movement->notes, 30) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
+            </div>
+
+            <x-slot:actions>
+                <x-mary-button label="Close" wire:click="$set('showViewModal', false)" />
+                <x-mary-button label="Edit Product" wire:click="editProduct({{ $selectedProduct->id }})"
+                    class="btn-primary" />
+            </x-slot:actions>
+        @endif
     </x-mary-modal>
 </div>

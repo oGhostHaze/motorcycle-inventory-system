@@ -160,8 +160,7 @@
     </div>
 
     {{-- Payment Modal --}}
-    <x-mary-modal wire:model="showPaymentModal" title="Process Payment" subtitle="Complete the sale transaction"
-        class="w-11/12 max-w-lg">
+    <x-mary-modal wire:model="showPaymentModal" title="Process Payment" subtitle="Complete the sale transaction">
 
         <div class="space-y-4">
             {{-- Order Summary --}}

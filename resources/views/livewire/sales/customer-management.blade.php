@@ -158,7 +158,7 @@
 
     {{-- Create/Edit Modal --}}
     <x-mary-modal wire:model="showModal" title="{{ $editMode ? 'Edit Customer' : 'Create New Customer' }}"
-        subtitle="Manage customer information and details" class="w-11/12 max-w-3xl">
+        subtitle="Manage customer information and details">
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             {{-- Basic Information --}}

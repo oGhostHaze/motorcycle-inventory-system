@@ -146,7 +146,7 @@
 
     {{-- Bulk Adjustments Modal --}}
     <x-mary-modal wire:model="showBulkModal" title="Bulk Stock Adjustments"
-        subtitle="Process multiple adjustments at once" class="w-11/12 max-w-4xl">
+        subtitle="Process multiple adjustments at once">
 
         <div class="space-y-4">
             <div class="flex items-center justify-between">

@@ -151,7 +151,7 @@
 
     {{-- Create/Edit PO Modal --}}
     <x-mary-modal wire:model="showModal" title="{{ $editMode ? 'Edit Purchase Order' : 'Create Purchase Order' }}"
-        subtitle="Manage purchase order details and items" class="w-11/12 max-w-5xl">
+        subtitle="Manage purchase order details and items">
 
         <div class="space-y-6">
             {{-- Basic Information --}}
@@ -243,8 +243,7 @@
     </x-mary-modal>
 
     {{-- Receiving Modal --}}
-    <x-mary-modal wire:model="showReceiveModal" title="Receive Items" subtitle="PO: {{ $selectedPO?->po_number }}"
-        class="w-11/12 max-w-4xl">
+    <x-mary-modal wire:model="showReceiveModal" title="Receive Items" subtitle="PO: {{ $selectedPO?->po_number }}">
 
         @if ($selectedPO)
             <div class="space-y-4">

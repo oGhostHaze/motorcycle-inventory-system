@@ -161,7 +161,7 @@
 
     {{-- Sale Details Modal --}}
     <x-mary-modal wire:model="showDetailsModal" title="Sale Details"
-        subtitle="Invoice: {{ $selectedSale?->invoice_number }}" class="w-11/12 max-w-4xl">
+        subtitle="Invoice: {{ $selectedSale?->invoice_number }}">
 
         @if ($selectedSale)
             <div class="space-y-6">

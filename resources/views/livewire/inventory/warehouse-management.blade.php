@@ -135,7 +135,7 @@
 
     {{-- Create/Edit Modal --}}
     <x-mary-modal wire:model="showModal" title="{{ $editMode ? 'Edit Warehouse' : 'Create New Warehouse' }}"
-        subtitle="Manage warehouse information and settings" class="w-11/12 max-w-2xl">
+        subtitle="Manage warehouse information and settings">
 
         <div class="space-y-4">
             {{-- Basic Information --}}
