@@ -4,7 +4,8 @@
         <div class="flex items-center justify-between">
             <h1 class="text-2xl font-bold">Point of Sale</h1>
             <div class="flex items-center gap-4">
-                <x-mary-select :options="$warehouses->map(fn($w) => ['value' => $w->id, 'label' => $w->name])" wire:model.live="selectedWarehouse" placeholder="Select Warehouse" />
+                <x-mary-select :options="$warehouses->map(fn($w) => ['value' => $w->id, 'label' => $w->name])" wire:model.live="selectedWarehouse" placeholder="Select Warehouse"
+                    option-value="value" option-label="label" />
                 <x-mary-button icon="o-qr-code" class="btn-ghost" tooltip="Scan Barcode" />
                 <x-mary-button icon="o-arrow-path" wire:click="resetSale" class="btn-ghost" tooltip="New Sale" />
             </div>
@@ -104,7 +105,8 @@
             {{-- Customer Selection --}}
             <x-mary-card title="Customer" class="h-fit">
                 <div class="space-y-3">
-                    <x-mary-select :options="$customers->map(fn($c) => ['value' => $c->id, 'label' => $c->name])" wire:model="selectedCustomer" placeholder="Walk-in Customer" />
+                    <x-mary-select :options="$customers->map(fn($c) => ['value' => $c->id, 'label' => $c->name])" wire:model="selectedCustomer" placeholder="Walk-in Customer"
+                        option-value="value" option-label="label" />
 
                     <div class="flex gap-2">
                         <x-mary-button label="New Customer" class="flex-1 btn-outline btn-sm" />
@@ -189,7 +191,8 @@
                 ['value' => 'card', 'label' => 'Credit/Debit Card'],
                 ['value' => 'gcash', 'label' => 'GCash'],
                 ['value' => 'bank_transfer', 'label' => 'Bank Transfer'],
-            ]" wire:model="paymentMethod" />
+            ]" wire:model="paymentMethod" option-value="value"
+                option-label="label" />
 
             {{-- Payment Amount --}}
             <x-mary-input label="Amount Paid" wire:model.live="paidAmount" type="number" step="0.01" />
