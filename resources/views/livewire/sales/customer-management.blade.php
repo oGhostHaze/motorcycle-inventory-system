@@ -59,7 +59,8 @@
                             <td>
                                 <div class="flex items-center gap-3">
                                     <div class="avatar placeholder">
-                                        <div class="w-8 h-8 text-xs rounded-full bg-neutral text-neutral-content">
+                                        <div
+                                            class="w-8 h-8 text-center uppercase pt-2 text-xs rounded-full bg-neutral text-neutral-content">
                                             <span>{{ substr($customer->name, 0, 2) }}</span>
                                         </div>
                                     </div>

@@ -360,299 +360,287 @@
     </x-mary-modal>
 
     {{-- Barcode Scanner Modal --}}
-    <x-mary-modal wire:model="showBarcodeModal" title="Barcode Scanner" subtitle="Scan or enter product barcode">
+    <x-mary-modal wire:model="showBarcodeModal" title="Barcode Scanner"
+        subtitle="Scan multiple items then add to cart">
         <div class="space-y-4">
-            <div class="p-4 rounded-lg bg-info/10">
-                <div class="flex items-center gap-2 text-info-700">
-                    <x-heroicon-o-qr-code class="w-5 h-5" />
-                    <span class="font-medium">Scan barcode with device camera or enter manually</span>
-                </div>
-            </div>
 
-            {{-- Manual Barcode Input --}}
+            {{-- Barcode Input --}}
             <div>
-                <x-mary-input label="Barcode" wire:model="barcodeInput" placeholder="Enter or scan barcode here..."
-                    wire:keydown.enter="processBarcodeInput" autofocus />
+                <x-mary-input label="Barcode Scanner" wire:model.live="barcodeInput"
+                    placeholder="Scan barcode here..." id="barcode-input" />
                 <div class="mt-2 text-xs text-gray-500">
-                    Tip: Focus this field and use your barcode scanner, or type the barcode manually
+                    Scan multiple items to build your batch. Items will be added to cart when you click "Add to Cart"
+                    below.
                 </div>
             </div>
 
-            {{-- Camera Scanner (HTML5) --}}
-            <div class="text-center">
-                <div class="space-y-4">
-                    <div class="flex gap-2 justify-center">
-                        <x-mary-button label="Start Camera" onclick="startCamera()" class="btn-primary btn-sm"
-                            id="startCameraBtn" />
-                        <x-mary-button label="Stop Camera" onclick="stopCamera()" class="btn-secondary btn-sm"
-                            id="stopCameraBtn" style="display: none;" />
+            {{-- Scanned Items (Batch) --}}
+            <div class="p-3 rounded-lg bg-base-200">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium">Scanned Items</span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-500">{{ count($scannedItems) }} items</span>
+                        @if (count($scannedItems) > 0)
+                            <x-mary-button icon="o-trash" wire:click="clearScannedItems"
+                                class="btn-ghost btn-xs text-error" tooltip="Clear All" />
+                        @endif
+                    </div>
+                </div>
+
+                @if (count($scannedItems) > 0)
+                    <div class="space-y-2 max-h-40 overflow-y-auto">
+                        @foreach ($scannedItems as $index => $item)
+                            <div class="flex items-center justify-between p-2 rounded bg-base-100">
+                                <div class="flex-1">
+                                    <div class="font-medium text-sm">{{ $item['name'] }}</div>
+                                    <div class="text-xs text-gray-500">{{ $item['sku'] }} • Stock:
+                                        {{ $item['available_stock'] }}</div>
+                                </div>
+
+                                <div class="flex items-center gap-2">
+                                    {{-- Quantity Controls --}}
+                                    <div class="flex items-center gap-1">
+                                        <x-mary-button icon="o-minus"
+                                            wire:click="updateScannedItemQuantity({{ $index }}, {{ $item['quantity'] - 1 }})"
+                                            class="btn-ghost btn-xs" />
+                                        <span
+                                            class="font-semibold min-w-[2rem] text-center text-sm">{{ $item['quantity'] }}</span>
+                                        <x-mary-button icon="o-plus"
+                                            wire:click="updateScannedItemQuantity({{ $index }}, {{ $item['quantity'] + 1 }})"
+                                            class="btn-ghost btn-xs" />
+                                    </div>
+
+                                    {{-- Price --}}
+                                    <div class="text-right min-w-[4rem]">
+                                        <div class="font-semibold text-sm">₱{{ number_format($item['subtotal'], 2) }}
+                                        </div>
+                                    </div>
+
+                                    {{-- Remove Button --}}
+                                    <x-mary-button icon="o-x-mark"
+                                        wire:click="removeScannedItem({{ $index }})"
+                                        class="btn-ghost btn-xs text-error" />
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
 
-                    {{-- Camera Video Container --}}
-                    <div id="camera-container" style="display: none;" class="relative mx-auto"
-                        style="width: 300px; height: 200px;">
-                        <div id="scanner" class="border rounded-lg overflow-hidden bg-black"></div>
-                        <div id="scan-line" class="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 animate-pulse">
+                    {{-- Batch Total --}}
+                    <div class="mt-3 pt-2 border-t border-gray-300">
+                        <div class="flex justify-between font-semibold text-sm">
+                            <span>Batch Total:</span>
+                            <span>₱{{ number_format(collect($scannedItems)->sum('subtotal'), 2) }}</span>
                         </div>
                     </div>
-
-                    {{-- Camera Status --}}
-                    <div id="camera-status" class="text-sm text-gray-500">
-                        Click "Start Camera" to begin scanning
-                    </div>
-
-                    {{-- Fallback Message --}}
-                    <div id="camera-fallback" style="display: none;"
-                        class="p-4 border-2 border-gray-300 border-dashed rounded-lg">
-                        <x-heroicon-o-camera class="w-12 h-12 mx-auto text-gray-400 mb-2" />
-                        <p class="text-sm text-gray-500 mb-3">Camera not available or not supported</p>
-                        <p class="text-xs text-gray-400">Use a handheld barcode scanner or enter barcode manually above
-                        </p>
-                    </div>
-                </div>
+                @else
+                    <div class="text-xs text-gray-500 text-center py-4">No items scanned yet</div>
+                @endif
             </div>
 
-            {{-- Recent Scans (if any) --}}
-            <div class="p-3 rounded-lg bg-base-200">
-                <div class="text-sm font-medium mb-2">Quick Actions:</div>
-                <div class="grid grid-cols-2 gap-2">
-                    <x-mary-button label="Test: 123456789" wire:click="$set('barcodeInput', '123456789')"
-                        class="btn-xs btn-outline" />
-                    <x-mary-button label="Test: 987654321" wire:click="$set('barcodeInput', '987654321')"
-                        class="btn-xs btn-outline" />
+            {{-- Current Cart Summary --}}
+            <div class="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-primary-700">Current Cart</span>
+                    <span class="text-xs text-primary-600">{{ count($cartItems) }} items</span>
                 </div>
-                <div class="mt-2">
-                    <x-mary-button label="Process Test Barcode" wire:click="processBarcodeInput"
-                        class="btn-xs btn-primary w-full" />
-                </div>
+                @if (count($cartItems) > 0)
+                    <div class="space-y-1 max-h-20 overflow-y-auto">
+                        @foreach (array_slice($cartItems, -3, 3, true) as $key => $item)
+                            <div class="flex justify-between text-xs text-primary-700">
+                                <span class="truncate">{{ $item['name'] }}</span>
+                                <span>{{ $item['quantity'] }}x ₱{{ number_format($item['price'], 2) }}</span>
+                            </div>
+                        @endforeach
+                        @if (count($cartItems) > 3)
+                            <div class="text-xs text-primary-600 text-center">... and {{ count($cartItems) - 3 }} more
+                                items</div>
+                        @endif
+                    </div>
+                    <div class="mt-2 pt-2 border-t border-primary/20">
+                        <div class="flex justify-between font-semibold text-sm text-primary-800">
+                            <span>Cart Total:</span>
+                            <span>₱{{ number_format($totalAmount, 2) }}</span>
+                        </div>
+                    </div>
+                @else
+                    <div class="text-xs text-primary-600 text-center py-2">Cart is empty</div>
+                @endif
             </div>
         </div>
 
         <x-slot:actions>
-            <x-mary-button label="Cancel" wire:click="$set('showBarcodeModal', false)" />
-            <x-mary-button label="Add to Cart" wire:click="processBarcodeInput" class="btn-primary" />
+            <x-mary-button label="Cancel" wire:click="$set('showBarcodeModal', false)" class="btn-ghost" />
+            <x-mary-button label="Clear Input" wire:click="clearBarcodeInput" class="btn-outline" />
+            <x-mary-button label="Add to Cart ({{ count($scannedItems) }})" wire:click="addScannedItemsToCart"
+                class="btn-primary" :disabled="count($scannedItems) === 0" />
         </x-slot:actions>
     </x-mary-modal>
 
-    {{-- Barcode Scanner JavaScript --}}
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     <script>
-        let cameraActive = false;
-        let quaggaInitialized = false;
+        // Global variable to track Livewire component
+        let posComponent = null;
 
-        // Camera functions
-        function startCamera() {
-            const container = document.getElementById('camera-container');
-            const status = document.getElementById('camera-status');
-            const startBtn = document.getElementById('startCameraBtn');
-            const stopBtn = document.getElementById('stopCameraBtn');
-            const fallback = document.getElementById('camera-fallback');
-            const scanner = document.getElementById('scanner');
-
-            // Check if getUserMedia is supported
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                showCameraFallback();
-                return;
-            }
-
-            status.textContent = 'Initializing camera...';
-
-            // Show container and hide fallback
-            container.style.display = 'block';
-            fallback.style.display = 'none';
-
-            // Configure Quagga for barcode detection
-            Quagga.init({
-                inputStream: {
-                    name: "Live",
-                    type: "LiveStream",
-                    target: scanner, // Use the scanner div as target
-                    constraints: {
-                        width: {
-                            min: 300,
-                            ideal: 400,
-                            max: 600
-                        },
-                        height: {
-                            min: 200,
-                            ideal: 300,
-                            max: 400
-                        },
-                        facingMode: "environment", // Use back camera on mobile
-                        aspectRatio: {
-                            min: 1,
-                            max: 2
-                        }
-                    }
-                },
-                decoder: {
-                    readers: [
-                        "code_128_reader",
-                        "ean_reader",
-                        "ean_8_reader",
-                        "code_39_reader",
-                        "upc_reader",
-                        "upc_e_reader"
-                    ],
-                    debug: {
-                        showCanvas: false,
-                        showPatches: false,
-                        showFoundPatches: false,
-                        showSkeleton: false,
-                        showLabels: false,
-                        showPatchLabels: false,
-                        showRemainingPatchLabels: false,
-                        boxFromPatches: {
-                            showTransformed: false,
-                            showTransformedBox: false,
-                            showBB: false
-                        }
-                    }
-                },
-                locate: true,
-                locator: {
-                    halfSample: true,
-                    patchSize: "medium",
-                    debug: {
-                        showCanvas: false,
-                        showPatches: false,
-                        showFoundPatches: false,
-                        showSkeleton: false,
-                        showLabels: false,
-                        showPatchLabels: false,
-                        showRemainingPatchLabels: false,
-                        boxFromPatches: {
-                            showTransformed: false,
-                            showTransformedBox: false,
-                            showBB: false
-                        }
-                    }
-                },
-                numOfWorkers: 2,
-                frequency: 10,
-                debug: false
-            }, function(err) {
-                if (err) {
-                    console.error('Error initializing Quagga:', err);
-                    status.textContent = 'Camera initialization failed';
-                    showCameraFallback();
-                    return;
-                }
-
-                console.log("Quagga initialization finished successfully");
-
-                try {
-                    Quagga.start();
-
-                    // Update UI
-                    startBtn.style.display = 'none';
-                    stopBtn.style.display = 'inline-block';
-                    status.textContent = 'Camera active - Point at barcode to scan';
-                    cameraActive = true;
-                    quaggaInitialized = true;
-
-                } catch (startErr) {
-                    console.error('Error starting Quagga:', startErr);
-                    status.textContent = 'Failed to start camera';
-                    showCameraFallback();
-                }
-            });
-
-            // Listen for successful barcode detection
-            Quagga.onDetected(function(result) {
-                if (result && result.codeResult && result.codeResult.code) {
-                    const barcode = result.codeResult.code;
-                    console.log('Barcode detected:', barcode);
-
-                    // Provide immediate feedback
-                    status.textContent = `Scanned: ${barcode} - Processing...`;
-
-                    // Set the barcode input and process it
-                    @this.set('barcodeInput', barcode);
-                    @this.call('processBarcodeInput');
-
-                    // Stop camera after successful scan
-                    setTimeout(() => {
-                        stopCamera();
-                    }, 1500);
-                }
-            });
-
-            // Handle any processing errors
-            Quagga.onProcessed(function(result) {
-                // Optional: Could add visual feedback here
-            });
-        }
-
-        function stopCamera() {
-            const container = document.getElementById('camera-container');
-            const status = document.getElementById('camera-status');
-            const startBtn = document.getElementById('startCameraBtn');
-            const stopBtn = document.getElementById('stopCameraBtn');
-
-            try {
-                if (quaggaInitialized) {
-                    Quagga.stop();
-                    Quagga.offDetected();
-                    Quagga.offProcessed();
-                    quaggaInitialized = false;
-                }
-            } catch (err) {
-                console.error('Error stopping camera:', err);
-            }
-
-            container.style.display = 'none';
-            startBtn.style.display = 'inline-block';
-            stopBtn.style.display = 'none';
-            status.textContent = 'Camera stopped - Click "Start Camera" to scan again';
-            cameraActive = false;
-        }
-
-        function showCameraFallback() {
-            const container = document.getElementById('camera-container');
-            const fallback = document.getElementById('camera-fallback');
-            const status = document.getElementById('camera-status');
-            const startBtn = document.getElementById('startCameraBtn');
-            const stopBtn = document.getElementById('stopCameraBtn');
-
-            container.style.display = 'none';
-            fallback.style.display = 'block';
-            startBtn.style.display = 'inline-block';
-            stopBtn.style.display = 'none';
-            status.textContent = 'Camera not available - Use manual input instead';
-        }
-
-        // Auto-stop camera when modal closes
+        // Initialize when Livewire loads
         document.addEventListener('livewire:init', () => {
-            // Auto-focus barcode input when modal opens
-            document.addEventListener('livewire:navigated', () => {
-                const input = document.querySelector('[wire\\:model="barcodeInput"]');
-                if (input) {
-                    setTimeout(() => input.focus(), 100);
+            // Get the Livewire component instance
+            posComponent = @this;
+
+            // Listen for modal changes and auto-focus
+            Livewire.hook('morph.updated', () => {
+                focusBarcodeInput();
+            });
+        });
+
+        function focusBarcodeInput() {
+            const input = document.getElementById('barcode-input');
+            if (input && document.querySelector('[wire\\:model="showBarcodeModal"]')) {
+                setTimeout(() => {
+                    input.focus();
+                    input.select();
+                }, 100);
+            }
+        }
+
+        // Enhanced global keyboard event handler
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+B shortcut - multiple detection methods
+            if (e.ctrlKey && (e.key === 'b' || e.key === 'B' || e.keyCode === 66)) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                console.log('Ctrl+B detected'); // Debug log
+
+                // Try multiple methods to call the Livewire method
+                try {
+                    if (posComponent) {
+                        posComponent.call('openBarcodeModal');
+                    } else if (window.Livewire) {
+                        // Fallback 1: Find component by wire:id
+                        const wireElement = document.querySelector('[wire\\:id]');
+                        if (wireElement) {
+                            const wireId = wireElement.getAttribute('wire:id');
+                            window.Livewire.find(wireId).call('openBarcodeModal');
+                        }
+                    } else if (typeof @this !== 'undefined') {
+                        // Fallback 2: Direct @this reference
+                        @this.call('openBarcodeModal');
+                    }
+                } catch (error) {
+                    console.error('Error opening barcode modal:', error);
+                    // Last resort: trigger click on barcode button
+                    const barcodeButton = document.querySelector('[wire\\:click="openBarcodeModal"]');
+                    if (barcodeButton) {
+                        barcodeButton.click();
+                    }
+                }
+
+                return false;
+            }
+
+            // F9 as alternative shortcut
+            if (e.key === 'F9') {
+                e.preventDefault();
+                try {
+                    if (posComponent) {
+                        posComponent.call('openBarcodeModal');
+                    }
+                } catch (error) {
+                    console.error('Error with F9 shortcut:', error);
+                }
+                return false;
+            }
+
+            // Escape to close modal (only if barcode modal is open)
+            if (e.key === 'Escape') {
+                const barcodeInput = document.getElementById('barcode-input');
+                if (barcodeInput && document.activeElement === barcodeInput) {
+                    try {
+                        if (posComponent) {
+                            posComponent.set('showBarcodeModal', false);
+                        }
+                    } catch (error) {
+                        console.error('Error closing modal:', error);
+                    }
+                }
+            }
+        }, true); // Use capture phase
+
+        // Alternative event listener for better browser compatibility
+        document.addEventListener('keyup', function(e) {
+            if (e.ctrlKey && (e.key === 'b' || e.key === 'B' || e.keyCode === 66)) {
+                e.preventDefault();
+                console.log('Ctrl+B keyup detected'); // Debug log
+            }
+        });
+
+        // Focus when modal opens via Livewire events
+        document.addEventListener('livewire:load', function() {
+            Livewire.on('barcode-modal-opened', () => {
+                setTimeout(focusBarcodeInput, 150);
+            });
+        });
+
+        // Enhanced focus management with MutationObserver
+        const focusObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                // Check if barcode input was added to DOM
+                if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === 1) { // Element node
+                            const barcodeInput = node.querySelector?.('#barcode-input') ||
+                                (node.id === 'barcode-input' ? node : null);
+                            if (barcodeInput) {
+                                setTimeout(() => {
+                                    barcodeInput.focus();
+                                    barcodeInput.select();
+                                }, 50);
+                            }
+                        }
+                    });
                 }
             });
         });
 
-        // Global barcode handler - Ctrl+B to open scanner
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'b') {
-                e.preventDefault();
-                @this.call('openBarcodeModal');
-            }
+        // Start observing DOM changes
+        focusObserver.observe(document.body, {
+            childList: true,
+            subtree: true
         });
 
-        // Clean up when page unloads or modal closes
-        window.addEventListener('beforeunload', () => {
-            if (cameraActive) {
-                stopCamera();
+        // Additional debugging and fallback methods
+        window.openBarcodeModal = function() {
+            try {
+                if (posComponent) {
+                    posComponent.call('openBarcodeModal');
+                } else {
+                    console.log('No posComponent available');
+                }
+            } catch (error) {
+                console.error('Manual modal open error:', error);
             }
-        });
+        };
 
-        // Stop camera when navigating away
-        document.addEventListener('livewire:navigating', () => {
-            if (cameraActive) {
-                stopCamera();
+        // Test function for debugging
+        window.testShortcut = function() {
+            console.log('Testing Ctrl+B shortcut...');
+            const event = new KeyboardEvent('keydown', {
+                key: 'b',
+                ctrlKey: true,
+                bubbles: true,
+                cancelable: true
+            });
+            document.dispatchEvent(event);
+        };
+
+        // Ensure focus periodically if modal is open
+        setInterval(() => {
+            const input = document.getElementById('barcode-input');
+            if (input && input.offsetParent !== null) { // Check if visible
+                const modal = input.closest('.modal');
+                if (modal && !modal.classList.contains('hidden') && document.activeElement !== input) {
+                    input.focus();
+                }
             }
-        });
+        }, 2000);
     </script>
 </div>

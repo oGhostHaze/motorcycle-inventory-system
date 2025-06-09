@@ -14,8 +14,10 @@
 
     {{-- Filters --}}
     <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-4">
-        <x-mary-select placeholder="Filter by role" :options="$roleOptions" wire:model.live="roleFilter" />
-        <x-mary-select placeholder="Filter by status" :options="$statusOptions" wire:model.live="statusFilter" />
+        <x-mary-select placeholder="Filter by role" :options="$roleOptions" wire:model.live="roleFilter" option-value="value"
+            option-label="label" />
+        <x-mary-select placeholder="Filter by status" :options="$statusOptions" wire:model.live="statusFilter"
+            option-value="value" option-label="label" />
         <div class="md:col-span-2 md:flex md:justify-end">
             <x-mary-button icon="o-x-mark" wire:click="clearFilters" class="btn-ghost">
                 Clear Filters
@@ -43,7 +45,8 @@
                             <td>
                                 <div class="flex items-center gap-3">
                                     <div class="avatar placeholder">
-                                        <div class="w-8 h-8 text-xs rounded-full bg-neutral text-neutral-content">
+                                        <div
+                                            class="w-8 h-8 text-center uppercase pt-2 text-xs rounded-full bg-neutral text-neutral-content">
                                             <span>{{ substr($user->name, 0, 2) }}</span>
                                         </div>
                                     </div>
@@ -113,7 +116,8 @@
             <x-mary-input label="Full Name" wire:model="name" placeholder="Enter full name" />
             <x-mary-input label="Email Address" wire:model="email" placeholder="Enter email address" />
 
-            <x-mary-select label="Role" :options="$roles" wire:model.live="role" placeholder="Select role" />
+            <x-mary-select label="Role" :options="$roles" wire:model.live="role" placeholder="Select role"
+                option-value="value" option-label="label" />
 
             <div class="flex items-center gap-2">
                 <x-mary-checkbox label="Active User" wire:model="is_active" />

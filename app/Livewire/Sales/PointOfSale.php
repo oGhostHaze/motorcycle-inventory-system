@@ -60,6 +60,7 @@ class PointOfSale extends Component
     // Barcode scanning
     public bool $showBarcodeModal = false;
     public string $barcodeInput = '';
+    public array $scannedItems = [];
 
     // Tax rate (configurable)
     public float $taxRate = 0.12; // 12% VAT
@@ -339,26 +340,153 @@ class PointOfSale extends Component
     public function openBarcodeModal()
     {
         $this->barcodeInput = '';
+        $this->scannedItems = [];
         $this->showBarcodeModal = true;
-        // Focus will be handled by JavaScript
+
+        // Dispatch event to focus input (handled by JavaScript)
+        $this->dispatch('barcode-modal-opened');
     }
 
     public function processBarcodeInput()
     {
         if (empty($this->barcodeInput)) {
-            $this->error('Please enter a barcode');
-            return;
+            return; // Don't show error, just return for empty input
         }
 
-        $this->scanBarcode($this->barcodeInput);
+        $product = Product::where('barcode', $this->barcodeInput)
+            ->where('status', 'active')
+            ->with(['inventory' => function ($query) {
+                $query->where('warehouse_id', $this->selectedWarehouse);
+            }])
+            ->first();
+
+        if ($product) {
+            $inventory = $product->inventory->first();
+            $availableStock = $inventory ? $inventory->quantity_available : 0;
+
+            if ($availableStock <= 0) {
+                $this->error('Product out of stock: ' . $product->name);
+                $this->barcodeInput = '';
+                return;
+            }
+
+            // Check if item already scanned in this batch
+            $existingIndex = null;
+            foreach ($this->scannedItems as $index => $item) {
+                if ($item['product_id'] == $product->id) {
+                    $existingIndex = $index;
+                    break;
+                }
+            }
+
+            if ($existingIndex !== null) {
+                // Check stock limit
+                if ($this->scannedItems[$existingIndex]['quantity'] >= $availableStock) {
+                    $this->error('Cannot add more. Stock limit: ' . $availableStock);
+                    $this->barcodeInput = '';
+                    return;
+                }
+                $this->scannedItems[$existingIndex]['quantity']++;
+                $this->scannedItems[$existingIndex]['subtotal'] =
+                    $this->scannedItems[$existingIndex]['quantity'] * $this->scannedItems[$existingIndex]['price'];
+            } else {
+                // Add new item to scanned batch
+                $this->scannedItems[] = [
+                    'product_id' => $product->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'price' => $product->selling_price,
+                    'quantity' => 1,
+                    'available_stock' => $availableStock,
+                    'subtotal' => $product->selling_price,
+                ];
+            }
+
+            $this->success('Scanned: ' . $product->name);
+        } else {
+            $this->error('Product not found: ' . $this->barcodeInput);
+        }
+
+        // Clear input for next scan
         $this->barcodeInput = '';
     }
 
-    public function quickBarcodeScan($barcode)
+    public function addScannedItemsToCart()
     {
-        // This method can be called directly from JavaScript
-        $this->scanBarcode($barcode);
+        if (empty($this->scannedItems)) {
+            $this->error('No items scanned yet.');
+            return;
+        }
+
+        $addedCount = 0;
+        foreach ($this->scannedItems as $scannedItem) {
+            $cartKey = $scannedItem['product_id'];
+
+            if (isset($this->cartItems[$cartKey])) {
+                // Update existing cart item
+                $this->cartItems[$cartKey]['quantity'] += $scannedItem['quantity'];
+                $this->cartItems[$cartKey]['subtotal'] =
+                    $this->cartItems[$cartKey]['quantity'] * $this->cartItems[$cartKey]['price'];
+            } else {
+                // Add as new cart item
+                $this->cartItems[$cartKey] = $scannedItem;
+            }
+            $addedCount++;
+        }
+
+        $this->updateCartTotals();
+        $this->scannedItems = [];
         $this->showBarcodeModal = false;
+        $this->success($addedCount . ' item(s) added to cart successfully!');
+    }
+
+    public function removeScannedItem($index)
+    {
+        if (isset($this->scannedItems[$index])) {
+            $itemName = $this->scannedItems[$index]['name'];
+            unset($this->scannedItems[$index]);
+            $this->scannedItems = array_values($this->scannedItems); // Re-index array
+            $this->success('Removed: ' . $itemName);
+        }
+    }
+
+    public function updateScannedItemQuantity($index, $quantity)
+    {
+        if (isset($this->scannedItems[$index])) {
+            if ($quantity <= 0) {
+                $this->removeScannedItem($index);
+                return;
+            }
+
+            $maxStock = $this->scannedItems[$index]['available_stock'];
+            if ($quantity > $maxStock) {
+                $this->error('Quantity exceeds available stock (' . $maxStock . ')');
+                return;
+            }
+
+            $this->scannedItems[$index]['quantity'] = $quantity;
+            $this->scannedItems[$index]['subtotal'] =
+                $this->scannedItems[$index]['quantity'] * $this->scannedItems[$index]['price'];
+        }
+    }
+
+    public function updatedBarcodeInput()
+    {
+        // Auto-process when barcode is entered (typical barcode length is 8-13 characters)
+        if (strlen($this->barcodeInput) >= 8) {
+            $this->processBarcodeInput();
+        }
+    }
+
+    public function clearBarcodeInput()
+    {
+        $this->barcodeInput = '';
+    }
+
+    public function clearScannedItems()
+    {
+        $this->scannedItems = [];
+        $this->success('Scanned items cleared.');
     }
 
     // ===== NEW CUSTOMER METHODS =====
