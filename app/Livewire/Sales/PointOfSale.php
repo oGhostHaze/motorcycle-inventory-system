@@ -34,7 +34,32 @@ class PointOfSale extends Component
     // UI state
     public bool $showCustomerModal = false;
     public bool $showPaymentModal = false;
+    public bool $showDiscountModal = false;
+    public bool $showHoldSaleModal = false;
+    public bool $showSearchCustomerModal = false;
     public array $searchResults = [];
+
+    // Customer form fields
+    public string $customerName = '';
+    public string $customerEmail = '';
+    public string $customerPhone = '';
+    public string $customerAddress = '';
+
+    // Hold sale fields
+    public string $holdReference = '';
+    public string $holdNotes = '';
+
+    // Discount fields
+    public string $discountType = 'percentage'; // percentage or fixed
+    public $discountValue = '';
+
+    // Customer search
+    public string $customerSearch = '';
+    public array $customerSearchResults = [];
+
+    // Barcode scanning
+    public bool $showBarcodeModal = false;
+    public string $barcodeInput = '';
 
     // Tax rate (configurable)
     public float $taxRate = 0.12; // 12% VAT
@@ -139,6 +164,21 @@ class PointOfSale extends Component
             $this->cartItems[$cartKey]['quantity'] = $quantity;
             $this->cartItems[$cartKey]['subtotal'] = $this->cartItems[$cartKey]['price'] * $quantity;
             $this->updateCartTotals();
+        }
+    }
+
+    public function updatePrice($cartKey, $price)
+    {
+        if ($price < 0) {
+            $this->error('Price cannot be negative');
+            return;
+        }
+
+        if (isset($this->cartItems[$cartKey])) {
+            $this->cartItems[$cartKey]['price'] = $price;
+            $this->cartItems[$cartKey]['subtotal'] = $this->cartItems[$cartKey]['quantity'] * $price;
+            $this->updateCartTotals();
+            $this->success('Price updated successfully!');
         }
     }
 
@@ -292,6 +332,220 @@ class PointOfSale extends Component
             $this->addToCart($product->id);
         } else {
             $this->error('Product not found with barcode: ' . $barcode);
+        }
+    }
+
+    // ===== BARCODE SCANNING METHODS =====
+    public function openBarcodeModal()
+    {
+        $this->barcodeInput = '';
+        $this->showBarcodeModal = true;
+        // Focus will be handled by JavaScript
+    }
+
+    public function processBarcodeInput()
+    {
+        if (empty($this->barcodeInput)) {
+            $this->error('Please enter a barcode');
+            return;
+        }
+
+        $this->scanBarcode($this->barcodeInput);
+        $this->barcodeInput = '';
+    }
+
+    public function quickBarcodeScan($barcode)
+    {
+        // This method can be called directly from JavaScript
+        $this->scanBarcode($barcode);
+        $this->showBarcodeModal = false;
+    }
+
+    // ===== NEW CUSTOMER METHODS =====
+    public function openCustomerModal()
+    {
+        $this->resetCustomerForm();
+        $this->showCustomerModal = true;
+    }
+
+    public function createCustomer()
+    {
+        $this->validate([
+            'customerName' => 'required|string|max:255',
+            'customerEmail' => 'nullable|email|unique:customers,email',
+            'customerPhone' => 'nullable|string|max:20',
+        ]);
+
+        try {
+            $customer = Customer::create([
+                'name' => $this->customerName,
+                'email' => $this->customerEmail,
+                'phone' => $this->customerPhone,
+                'address' => $this->customerAddress,
+                'type' => 'individual',
+                'is_active' => true,
+            ]);
+
+            $this->selectedCustomer = $customer->id;
+            $this->showCustomerModal = false;
+            $this->success('New customer created and selected: ' . $customer->name);
+            $this->resetCustomerForm();
+        } catch (\Exception $e) {
+            $this->error('Error creating customer: ' . $e->getMessage());
+        }
+    }
+
+    private function resetCustomerForm()
+    {
+        $this->customerName = '';
+        $this->customerEmail = '';
+        $this->customerPhone = '';
+        $this->customerAddress = '';
+    }
+
+    // ===== CUSTOMER SEARCH METHODS =====
+    public function openSearchCustomerModal()
+    {
+        $this->customerSearch = '';
+        $this->customerSearchResults = [];
+        $this->showSearchCustomerModal = true;
+    }
+
+    public function searchCustomers()
+    {
+        if (strlen($this->customerSearch) >= 2) {
+            $this->customerSearchResults = Customer::where('is_active', true)
+                ->where(function ($query) {
+                    $query->where('name', 'like', '%' . $this->customerSearch . '%')
+                        ->orWhere('email', 'like', '%' . $this->customerSearch . '%')
+                        ->orWhere('phone', 'like', '%' . $this->customerSearch . '%');
+                })
+                ->limit(10)
+                ->get()
+                ->toArray();
+        } else {
+            $this->customerSearchResults = [];
+        }
+    }
+
+    public function selectSearchedCustomer($customerId)
+    {
+        $this->selectedCustomer = $customerId;
+        $this->showSearchCustomerModal = false;
+        $customer = Customer::find($customerId);
+        $this->success('Customer selected: ' . $customer->name);
+    }
+
+    public function updatedCustomerSearch()
+    {
+        $this->searchCustomers();
+    }
+
+    // ===== EXACT CASH METHOD =====
+    public function setExactCash()
+    {
+        $this->paidAmount = $this->totalAmount;
+        $this->calculateChange();
+        $this->success('Payment amount set to exact total: ₱' . number_format($this->totalAmount, 2));
+    }
+
+    // ===== DISCOUNT METHODS =====
+    public function openDiscountModal()
+    {
+        if (empty($this->cartItems)) {
+            $this->error('Cart is empty. Add items first.');
+            return;
+        }
+        $this->discountType = 'percentage';
+        $this->discountValue = '';
+        $this->showDiscountModal = true;
+    }
+
+    public function applyDiscount()
+    {
+        $this->validate([
+            'discountType' => 'required|in:percentage,fixed',
+            'discountValue' => 'required|numeric|min:0',
+        ]);
+
+        if ($this->discountType === 'percentage' && $this->discountValue > 100) {
+            $this->error('Percentage discount cannot exceed 100%');
+            return;
+        }
+
+        if ($this->discountType === 'percentage') {
+            $this->discountAmount = $this->subtotal * ($this->discountValue / 100);
+        } else {
+            $this->discountAmount = min($this->discountValue, $this->subtotal);
+        }
+
+        $this->updateCartTotals();
+        $this->showDiscountModal = false;
+        $this->success('Discount applied successfully!');
+    }
+
+    public function removeDiscount()
+    {
+        $this->discountAmount = 0;
+        $this->updateCartTotals();
+        $this->success('Discount removed!');
+    }
+
+    // ===== HOLD SALE METHODS =====
+    public function openHoldSaleModal()
+    {
+        if (empty($this->cartItems)) {
+            $this->error('Cart is empty. Add items first.');
+            return;
+        }
+        $this->holdReference = 'HOLD-' . date('YmdHis');
+        $this->holdNotes = '';
+        $this->showHoldSaleModal = true;
+    }
+
+    public function holdSale()
+    {
+        $this->validate([
+            'holdReference' => 'required|string|max:255',
+        ]);
+
+        try {
+            // Create a held sale record
+            $heldSale = Sale::create([
+                'invoice_number' => $this->holdReference,
+                'customer_id' => $this->selectedCustomer,
+                'warehouse_id' => $this->selectedWarehouse,
+                'user_id' => auth()->id(),
+                'subtotal' => $this->subtotal,
+                'discount_amount' => $this->discountAmount,
+                'tax_amount' => $this->taxAmount,
+                'total_amount' => $this->totalAmount,
+                'paid_amount' => 0,
+                'change_amount' => 0,
+                'payment_method' => 'pending',
+                'status' => 'draft',
+                'notes' => 'HELD SALE: ' . $this->holdNotes,
+                'completed_at' => null,
+            ]);
+
+            // Create sale items
+            foreach ($this->cartItems as $item) {
+                SaleItem::create([
+                    'sale_id' => $heldSale->id,
+                    'product_id' => $item['product_id'],
+                    'product_name' => $item['name'],
+                    'product_sku' => $item['sku'],
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['price'],
+                    'total_price' => $item['subtotal'],
+                ]);
+            }
+
+            $this->success('Sale held successfully! Reference: ' . $this->holdReference);
+            $this->resetSale();
+            $this->showHoldSaleModal = false;
+        } catch (\Exception $e) {
+            $this->error('Error holding sale: ' . $e->getMessage());
         }
     }
 }

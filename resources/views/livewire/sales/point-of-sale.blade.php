@@ -6,7 +6,7 @@
             <div class="flex items-center gap-4">
                 <x-mary-select :options="$warehouses->map(fn($w) => ['value' => $w->id, 'label' => $w->name])" wire:model.live="selectedWarehouse" placeholder="Select Warehouse"
                     option-value="value" option-label="label" />
-                <x-mary-button icon="o-qr-code" class="btn-ghost" tooltip="Scan Barcode" />
+                <x-mary-button icon="o-qr-code" wire:click="openBarcodeModal" class="btn-ghost" tooltip="Scan Barcode" />
                 <x-mary-button icon="o-arrow-path" wire:click="resetSale" class="btn-ghost" tooltip="New Sale" />
             </div>
         </div>
@@ -59,12 +59,20 @@
                             <div class="flex items-center justify-between p-3 rounded-lg bg-base-200">
                                 <div class="flex-1">
                                     <div class="font-medium">{{ $item['name'] }}</div>
-                                    <div class="text-sm text-gray-500">{{ $item['sku'] }} •
-                                        ₱{{ number_format($item['price'], 2) }}</div>
+                                    <div class="text-sm text-gray-500">{{ $item['sku'] }}</div>
                                     <div class="text-xs text-gray-400">Available: {{ $item['available_stock'] }}</div>
                                 </div>
 
                                 <div class="flex items-center gap-3">
+                                    {{-- Editable Price --}}
+                                    <div class="text-center">
+                                        <label class="block text-xs text-gray-500">Price</label>
+                                        <input type="number" step="0.01" min="0" value="{{ $item['price'] }}"
+                                            wire:blur="updatePrice('{{ $key }}', $event.target.value)"
+                                            class="w-20 input input-xs input-bordered text-center" />
+                                    </div>
+
+                                    {{-- Quantity Controls --}}
                                     <div class="flex items-center gap-2">
                                         <x-mary-button icon="o-minus"
                                             wire:click="updateQuantity('{{ $key }}', {{ $item['quantity'] - 1 }})"
@@ -76,10 +84,12 @@
                                             class="btn-ghost btn-xs" />
                                     </div>
 
+                                    {{-- Subtotal --}}
                                     <div class="text-right min-w-[4rem]">
                                         <div class="font-semibold">₱{{ number_format($item['subtotal'], 2) }}</div>
                                     </div>
 
+                                    {{-- Remove Button --}}
                                     <x-mary-button icon="o-trash" wire:click="removeFromCart('{{ $key }}')"
                                         class="btn-ghost btn-xs text-error" />
                                 </div>
@@ -109,8 +119,10 @@
                         option-value="value" option-label="label" />
 
                     <div class="flex gap-2">
-                        <x-mary-button label="New Customer" class="flex-1 btn-outline btn-sm" />
-                        <x-mary-button icon="o-magnifying-glass" class="btn-ghost btn-sm" tooltip="Search Customer" />
+                        <x-mary-button label="New Customer" wire:click="openCustomerModal"
+                            class="flex-1 btn-outline btn-sm" />
+                        <x-mary-button icon="o-magnifying-glass" wire:click="openSearchCustomerModal"
+                            class="btn-ghost btn-sm" tooltip="Search Customer" />
                     </div>
                 </div>
             </x-mary-card>
@@ -126,7 +138,11 @@
                     @if ($discountAmount > 0)
                         <div class="flex justify-between text-warning">
                             <span>Discount:</span>
-                            <span>-₱{{ number_format($discountAmount, 2) }}</span>
+                            <div class="flex items-center gap-2">
+                                <span>-₱{{ number_format($discountAmount, 2) }}</span>
+                                <x-mary-button icon="o-x-mark" wire:click="removeDiscount"
+                                    class="btn-ghost btn-xs text-error" tooltip="Remove Discount" />
+                            </div>
                         </div>
                     @endif
 
@@ -145,17 +161,17 @@
 
                 {{-- Action Buttons --}}
                 <div class="mt-6 space-y-3">
-                    <x-mary-button label="Apply Discount" class="w-full btn-outline" />
-                    <x-mary-button label="Hold Sale" class="w-full btn-ghost" />
+                    <x-mary-button label="Apply Discount" wire:click="openDiscountModal"
+                        class="w-full btn-outline" />
+                    <x-mary-button label="Hold Sale" wire:click="openHoldSaleModal" class="w-full btn-ghost" />
                     <x-mary-button label="Process Payment" wire:click="openPaymentModal"
                         class="w-full btn-primary btn-lg" :disabled="count($cartItems) === 0" />
                 </div>
 
-                {{-- Quick Payment Buttons --}}
-                <div class="grid grid-cols-2 gap-2 mt-4">
-                    <x-mary-button label="Exact Cash" class="btn-success btn-sm"
-                        wire:click="$set('paidAmount', {{ $totalAmount }})" />
-                    <x-mary-button label="Card Payment" class="btn-info btn-sm" />
+                {{-- Quick Payment Button --}}
+                <div class="mt-4">
+                    <x-mary-button label="Exact Cash" wire:click="setExactCash" class="w-full btn-success btn-sm"
+                        :disabled="count($cartItems) === 0" />
                 </div>
             </x-mary-card>
         </div>
@@ -188,7 +204,6 @@
             {{-- Payment Method --}}
             <x-mary-select label="Payment Method" :options="[
                 ['value' => 'cash', 'label' => 'Cash'],
-                ['value' => 'card', 'label' => 'Credit/Debit Card'],
                 ['value' => 'gcash', 'label' => 'GCash'],
                 ['value' => 'bank_transfer', 'label' => 'Bank Transfer'],
             ]" wire:model="paymentMethod" option-value="value"
@@ -217,4 +232,201 @@
             <x-mary-button label="Complete Sale" wire:click="completeSale" class="btn-success" :disabled="$paidAmount < $totalAmount" />
         </x-slot:actions>
     </x-mary-modal>
+
+    {{-- New Customer Modal --}}
+    <x-mary-modal wire:model="showCustomerModal" title="Create New Customer"
+        subtitle="Add a new customer to the system">
+        <div class="space-y-4">
+            <x-mary-input label="Customer Name" wire:model="customerName" placeholder="Enter customer name" />
+            <x-mary-input label="Email Address" wire:model="customerEmail" placeholder="customer@example.com" />
+            <x-mary-input label="Phone Number" wire:model="customerPhone" placeholder="Contact number" />
+            <x-mary-textarea label="Address" wire:model="customerAddress" placeholder="Customer address"
+                rows="2" />
+        </div>
+
+        <x-slot:actions>
+            <x-mary-button label="Cancel" wire:click="$set('showCustomerModal', false)" />
+            <x-mary-button label="Create Customer" wire:click="createCustomer" class="btn-primary" />
+        </x-slot:actions>
+    </x-mary-modal>
+
+    {{-- Search Customer Modal --}}
+    <x-mary-modal wire:model="showSearchCustomerModal" title="Search Customer" subtitle="Find existing customer">
+        <div class="space-y-4">
+            <x-mary-input label="Search" wire:model.live.debounce="customerSearch"
+                placeholder="Search by name, email, or phone..." icon="o-magnifying-glass" />
+
+            @if (count($customerSearchResults) > 0)
+                <div class="max-h-60 overflow-y-auto space-y-2">
+                    @foreach ($customerSearchResults as $customer)
+                        <div class="p-3 border rounded-lg cursor-pointer hover:bg-base-200"
+                            wire:click="selectSearchedCustomer({{ $customer['id'] }})">
+                            <div class="font-medium">{{ $customer['name'] }}</div>
+                            <div class="text-sm text-gray-500">
+                                {{ $customer['email'] ?? 'No email' }} • {{ $customer['phone'] ?? 'No phone' }}
+                            </div>
+                            @if ($customer['total_orders'] > 0)
+                                <div class="text-xs text-gray-400">
+                                    {{ $customer['total_orders'] }} orders •
+                                    ₱{{ number_format($customer['total_purchases'], 2) }} total
+                                </div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @elseif(strlen($customerSearch) >= 2)
+                <div class="text-center py-4 text-gray-500">
+                    No customers found matching "{{ $customerSearch }}"
+                </div>
+            @endif
+        </div>
+
+        <x-slot:actions>
+            <x-mary-button label="Cancel" wire:click="$set('showSearchCustomerModal', false)" />
+        </x-slot:actions>
+    </x-mary-modal>
+
+    {{-- Apply Discount Modal --}}
+    <x-mary-modal wire:model="showDiscountModal" title="Apply Discount" subtitle="Add discount to the current sale">
+        <div class="space-y-4">
+            <x-mary-select label="Discount Type" :options="[
+                ['value' => 'percentage', 'label' => 'Percentage (%)'],
+                ['value' => 'fixed', 'label' => 'Fixed Amount (₱)'],
+            ]" wire:model="discountType" option-value="value"
+                option-label="label" />
+
+            <x-mary-input label="Discount Value" wire:model="discountValue" type="number" step="0.01"
+                min="0"
+                placeholder="{{ $discountType === 'percentage' ? 'Enter percentage (e.g., 10)' : 'Enter amount (e.g., 100.00)' }}" />
+
+            @if ($discountType === 'percentage' && $discountValue)
+                <div class="p-3 rounded-lg bg-info/10">
+                    <div class="text-sm">
+                        <strong>Preview:</strong> {{ $discountValue }}% discount =
+                        ₱{{ number_format($subtotal * ($discountValue / 100), 2) }}
+                    </div>
+                </div>
+            @elseif ($discountType === 'fixed' && $discountValue)
+                <div class="p-3 rounded-lg bg-info/10">
+                    <div class="text-sm">
+                        <strong>Preview:</strong> ₱{{ number_format(min($discountValue, $subtotal), 2) }} discount
+                    </div>
+                </div>
+            @endif
+        </div>
+
+        <x-slot:actions>
+            <x-mary-button label="Cancel" wire:click="$set('showDiscountModal', false)" />
+            <x-mary-button label="Apply Discount" wire:click="applyDiscount" class="btn-primary" />
+        </x-slot:actions>
+    </x-mary-modal>
+
+    {{-- Hold Sale Modal --}}
+    <x-mary-modal wire:model="showHoldSaleModal" title="Hold Sale" subtitle="Save current sale for later completion">
+        <div class="space-y-4">
+            <div class="p-4 rounded-lg bg-warning/10">
+                <div class="flex items-center gap-2 text-warning-700">
+                    <x-heroicon-o-information-circle class="w-5 h-5" />
+                    <span class="font-medium">Sale will be saved as draft and can be retrieved later</span>
+                </div>
+            </div>
+
+            <x-mary-input label="Hold Reference" wire:model="holdReference" placeholder="Reference number" />
+            <x-mary-textarea label="Notes" wire:model="holdNotes" placeholder="Optional notes for this held sale"
+                rows="3" />
+
+            <div class="p-3 rounded-lg bg-base-200">
+                <div class="text-sm space-y-1">
+                    <div class="flex justify-between">
+                        <span>Items:</span>
+                        <span>{{ count($cartItems) }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>₱{{ number_format($subtotal, 2) }}</span>
+                    </div>
+                    <div class="flex justify-between font-semibold">
+                        <span>Total:</span>
+                        <span>₱{{ number_format($totalAmount, 2) }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <x-slot:actions>
+            <x-mary-button label="Cancel" wire:click="$set('showHoldSaleModal', false)" />
+            <x-mary-button label="Hold Sale" wire:click="holdSale" class="btn-warning" />
+        </x-slot:actions>
+    </x-mary-modal>
+
+    {{-- Barcode Scanner Modal --}}
+    <x-mary-modal wire:model="showBarcodeModal" title="Barcode Scanner" subtitle="Scan or enter product barcode">
+        <div class="space-y-4">
+            <div class="p-4 rounded-lg bg-info/10">
+                <div class="flex items-center gap-2 text-info-700">
+                    <x-heroicon-o-qr-code class="w-5 h-5" />
+                    <span class="font-medium">Scan barcode with device camera or enter manually</span>
+                </div>
+            </div>
+
+            {{-- Manual Barcode Input --}}
+            <div>
+                <x-mary-input label="Barcode" wire:model="barcodeInput" placeholder="Enter or scan barcode here..."
+                    wire:keydown.enter="processBarcodeInput" autofocus />
+                <div class="mt-2 text-xs text-gray-500">
+                    Tip: Focus this field and use your barcode scanner, or type the barcode manually
+                </div>
+            </div>
+
+            {{-- Camera Scanner (HTML5) --}}
+            <div class="text-center">
+                <div class="p-4 border-2 border-gray-300 border-dashed rounded-lg">
+                    <x-heroicon-o-camera class="w-12 h-12 mx-auto text-gray-400 mb-2" />
+                    <p class="text-sm text-gray-500 mb-3">Camera scanning not yet implemented</p>
+                    <p class="text-xs text-gray-400">Use a handheld barcode scanner or enter barcode manually above</p>
+                </div>
+            </div>
+
+            {{-- Recent Scans (if any) --}}
+            <div class="p-3 rounded-lg bg-base-200">
+                <div class="text-sm font-medium mb-2">Quick Actions:</div>
+                <div class="grid grid-cols-2 gap-2">
+                    <x-mary-button label="Test: 123456789" wire:click="$set('barcodeInput', '123456789')"
+                        class="btn-xs btn-outline" />
+                    <x-mary-button label="Test: 987654321" wire:click="$set('barcodeInput', '987654321')"
+                        class="btn-xs btn-outline" />
+                </div>
+                <div class="mt-2">
+                    <x-mary-button label="Process Test Barcode" wire:click="processBarcodeInput"
+                        class="btn-xs btn-primary w-full" />
+                </div>
+            </div>
+        </div>
+
+        <x-slot:actions>
+            <x-mary-button label="Cancel" wire:click="$set('showBarcodeModal', false)" />
+            <x-mary-button label="Add to Cart" wire:click="processBarcodeInput" class="btn-primary" />
+        </x-slot:actions>
+    </x-mary-modal>
+
+    {{-- Barcode Scanner JavaScript --}}
+    <script>
+        document.addEventListener('livewire:init', () => {
+            // Auto-focus barcode input when modal opens
+            document.addEventListener('livewire:navigated', () => {
+                const input = document.querySelector('[wire\\:model="barcodeInput"]');
+                if (input) {
+                    input.focus();
+                }
+            });
+        });
+
+        // Global barcode handler - Ctrl+B to open scanner
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'b') {
+                e.preventDefault();
+                @this.call('openBarcodeModal');
+            }
+        });
+    </script>
 </div>
