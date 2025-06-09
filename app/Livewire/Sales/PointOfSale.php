@@ -65,10 +65,15 @@ class PointOfSale extends Component
     // Tax rate (configurable)
     public float $taxRate = 0.12; // 12% VAT
 
+    public bool $showHeldSalesModal = false;
+    public array $heldSales = [];
+
     public function mount()
     {
         // Set default warehouse
         $this->selectedWarehouse = Warehouse::where('is_active', true)->first()?->id;
+
+        $this->loadHeldSales();
     }
 
     public function render()
@@ -650,7 +655,7 @@ class PointOfSale extends Component
                 'total_amount' => $this->totalAmount,
                 'paid_amount' => 0,
                 'change_amount' => 0,
-                'payment_method' => 'pending',
+                'payment_method' => 'cash',
                 'status' => 'draft',
                 'notes' => 'HELD SALE: ' . $this->holdNotes,
                 'completed_at' => null,
@@ -674,6 +679,105 @@ class PointOfSale extends Component
             $this->showHoldSaleModal = false;
         } catch (\Exception $e) {
             $this->error('Error holding sale: ' . $e->getMessage());
+        }
+    }
+
+
+    public function loadHeldSales()
+    {
+        $this->heldSales = Sale::where('status', 'draft')
+            ->where('user_id', auth()->id()) // Only show current user's held sales
+            ->with(['customer', 'items'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($sale) {
+                return [
+                    'id' => $sale->id,
+                    'invoice_number' => $sale->invoice_number,
+                    'customer_name' => $sale->customer?->name ?? 'Walk-in Customer',
+                    'total_amount' => $sale->total_amount,
+                    'items_count' => $sale->items->count(),
+                    'created_at' => $sale->created_at->format('M d, Y H:i'),
+                    'notes' => $sale->notes,
+                ];
+            })
+            ->toArray();
+    }
+
+    public function openHeldSalesModal()
+    {
+        $this->loadHeldSales();
+        $this->showHeldSalesModal = true;
+    }
+
+    public function retrieveHeldSale($saleId)
+    {
+        try {
+            $heldSale = Sale::with(['customer', 'items.product'])->find($saleId);
+
+            if (!$heldSale || $heldSale->status !== 'draft') {
+                $this->error('Held sale not found or already processed.');
+                return;
+            }
+
+            // Clear current cart
+            $this->resetSale();
+
+            // Load held sale data
+            $this->selectedCustomer = $heldSale->customer_id;
+            $this->selectedWarehouse = $heldSale->warehouse_id;
+            $this->discountAmount = $heldSale->discount_amount;
+            $this->saleNotes = str_replace('HELD SALE: ', '', $heldSale->notes);
+
+            // Load cart items from held sale
+            foreach ($heldSale->items as $item) {
+                $product = $item->product;
+                if ($product) {
+                    $inventory = $product->inventory()
+                        ->where('warehouse_id', $this->selectedWarehouse)
+                        ->first();
+
+                    $availableStock = $inventory ? $inventory->quantity_available : 0;
+
+                    $this->cartItems[$product->id] = [
+                        'product_id' => $product->id,
+                        'name' => $item->product_name,
+                        'sku' => $item->product_sku,
+                        'price' => $item->unit_price,
+                        'quantity' => $item->quantity,
+                        'available_stock' => $availableStock,
+                        'subtotal' => $item->total_price,
+                    ];
+                }
+            }
+
+            $this->updateCartTotals();
+
+            // Delete the held sale record since we're resuming it
+            $heldSale->delete();
+
+            $this->showHeldSalesModal = false;
+            $this->success('Held sale retrieved successfully! Reference: ' . $heldSale->invoice_number);
+        } catch (\Exception $e) {
+            $this->error('Error retrieving held sale: ' . $e->getMessage());
+        }
+    }
+
+    public function deleteHeldSale($saleId)
+    {
+        try {
+            $heldSale = Sale::find($saleId);
+
+            if (!$heldSale || $heldSale->status !== 'draft') {
+                $this->error('Held sale not found or already processed.');
+                return;
+            }
+
+            $heldSale->delete();
+            $this->loadHeldSales();
+            $this->success('Held sale deleted successfully!');
+        } catch (\Exception $e) {
+            $this->error('Error deleting held sale: ' . $e->getMessage());
         }
     }
 }

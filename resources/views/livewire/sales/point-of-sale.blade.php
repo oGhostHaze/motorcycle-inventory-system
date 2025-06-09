@@ -7,6 +7,7 @@
                 <x-mary-select :options="$warehouses->map(fn($w) => ['value' => $w->id, 'label' => $w->name])" wire:model.live="selectedWarehouse" placeholder="Select Warehouse"
                     option-value="value" option-label="label" />
                 <x-mary-button icon="o-qr-code" wire:click="openBarcodeModal" class="btn-ghost" tooltip="Scan Barcode" />
+                <x-mary-button icon="o-clock" wire:click="openHeldSalesModal" class="btn-ghost" tooltip="Held Sales" />
                 <x-mary-button icon="o-arrow-path" wire:click="resetSale" class="btn-ghost" tooltip="New Sale" />
             </div>
         </div>
@@ -476,6 +477,94 @@
         </x-slot:actions>
     </x-mary-modal>
 
+    {{-- Held Sales Modal --}}
+    <x-mary-modal wire:model="showHeldSalesModal" title="Held Sales" subtitle="Retrieve or manage held transactions"
+        box-class="w-11/12 max-w-4xl">
+        <div class="space-y-4">
+            @if (count($heldSales) > 0)
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra">
+                        <thead>
+                            <tr>
+                                <th>Reference</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Date/Time</th>
+                                <th>Notes</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($heldSales as $sale)
+                                <tr>
+                                    <td>
+                                        <div class="font-medium">{{ $sale['invoice_number'] }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="text-sm">{{ $sale['customer_name'] }}</div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="font-semibold">{{ $sale['items_count'] }}</span>
+                                        <div class="text-xs text-gray-500">items</div>
+                                    </td>
+                                    <td>
+                                        <div class="font-semibold">₱{{ number_format($sale['total_amount'], 2) }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="text-sm">{{ $sale['created_at'] }}</div>
+                                    </td>
+                                    <td>
+                                        @if ($sale['notes'])
+                                            <div class="max-w-xs text-xs truncate" title="{{ $sale['notes'] }}">
+                                                {{ str_replace('HELD SALE: ', '', $sale['notes']) }}
+                                            </div>
+                                        @else
+                                            <span class="text-gray-400">-</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <div class="flex gap-1">
+                                            <x-mary-button label="Retrieve"
+                                                wire:click="retrieveHeldSale({{ $sale['id'] }})"
+                                                wire:confirm="This will replace your current cart. Continue?"
+                                                class="btn-primary btn-xs" />
+                                            <x-mary-button icon="o-trash"
+                                                wire:click="deleteHeldSale({{ $sale['id'] }})"
+                                                wire:confirm="Are you sure you want to delete this held sale?"
+                                                class="btn-ghost btn-xs text-error" />
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="p-3 rounded-lg bg-info/10">
+                    <div class="flex items-center gap-2 text-info-700">
+                        <x-heroicon-o-information-circle class="w-5 h-5" />
+                        <span class="text-sm">
+                            <strong>Retrieve:</strong> Loads the held sale into your current cart.
+                            <strong>Delete:</strong> Permanently removes the held sale.
+                        </span>
+                    </div>
+                </div>
+            @else
+                <div class="py-8 text-center">
+                    <x-heroicon-o-clock class="w-12 h-12 mx-auto text-gray-400" />
+                    <p class="mt-2 text-gray-500">No held sales found</p>
+                    <p class="text-sm text-gray-400">Use "Hold Sale" in the order summary to save transactions for
+                        later</p>
+                </div>
+            @endif
+        </div>
+
+        <x-slot:actions>
+            <x-mary-button label="Close" wire:click="$set('showHeldSalesModal', false)" class="btn-primary" />
+        </x-slot:actions>
+    </x-mary-modal>
     <script>
         // Global variable to track Livewire component
         let posComponent = null;
