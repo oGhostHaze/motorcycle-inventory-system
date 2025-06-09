@@ -380,10 +380,35 @@
 
             {{-- Camera Scanner (HTML5) --}}
             <div class="text-center">
-                <div class="p-4 border-2 border-gray-300 border-dashed rounded-lg">
-                    <x-heroicon-o-camera class="w-12 h-12 mx-auto text-gray-400 mb-2" />
-                    <p class="text-sm text-gray-500 mb-3">Camera scanning not yet implemented</p>
-                    <p class="text-xs text-gray-400">Use a handheld barcode scanner or enter barcode manually above</p>
+                <div class="space-y-4">
+                    <div class="flex gap-2 justify-center">
+                        <x-mary-button label="Start Camera" onclick="startCamera()" class="btn-primary btn-sm"
+                            id="startCameraBtn" />
+                        <x-mary-button label="Stop Camera" onclick="stopCamera()" class="btn-secondary btn-sm"
+                            id="stopCameraBtn" style="display: none;" />
+                    </div>
+
+                    {{-- Camera Video Container --}}
+                    <div id="camera-container" style="display: none;" class="relative mx-auto"
+                        style="width: 300px; height: 200px;">
+                        <div id="scanner" class="border rounded-lg overflow-hidden bg-black"></div>
+                        <div id="scan-line" class="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 animate-pulse">
+                        </div>
+                    </div>
+
+                    {{-- Camera Status --}}
+                    <div id="camera-status" class="text-sm text-gray-500">
+                        Click "Start Camera" to begin scanning
+                    </div>
+
+                    {{-- Fallback Message --}}
+                    <div id="camera-fallback" style="display: none;"
+                        class="p-4 border-2 border-gray-300 border-dashed rounded-lg">
+                        <x-heroicon-o-camera class="w-12 h-12 mx-auto text-gray-400 mb-2" />
+                        <p class="text-sm text-gray-500 mb-3">Camera not available or not supported</p>
+                        <p class="text-xs text-gray-400">Use a handheld barcode scanner or enter barcode manually above
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -410,13 +435,200 @@
     </x-mary-modal>
 
     {{-- Barcode Scanner JavaScript --}}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     <script>
+        let cameraActive = false;
+        let quaggaInitialized = false;
+
+        // Camera functions
+        function startCamera() {
+            const container = document.getElementById('camera-container');
+            const status = document.getElementById('camera-status');
+            const startBtn = document.getElementById('startCameraBtn');
+            const stopBtn = document.getElementById('stopCameraBtn');
+            const fallback = document.getElementById('camera-fallback');
+            const scanner = document.getElementById('scanner');
+
+            // Check if getUserMedia is supported
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showCameraFallback();
+                return;
+            }
+
+            status.textContent = 'Initializing camera...';
+
+            // Show container and hide fallback
+            container.style.display = 'block';
+            fallback.style.display = 'none';
+
+            // Configure Quagga for barcode detection
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: scanner, // Use the scanner div as target
+                    constraints: {
+                        width: {
+                            min: 300,
+                            ideal: 400,
+                            max: 600
+                        },
+                        height: {
+                            min: 200,
+                            ideal: 300,
+                            max: 400
+                        },
+                        facingMode: "environment", // Use back camera on mobile
+                        aspectRatio: {
+                            min: 1,
+                            max: 2
+                        }
+                    }
+                },
+                decoder: {
+                    readers: [
+                        "code_128_reader",
+                        "ean_reader",
+                        "ean_8_reader",
+                        "code_39_reader",
+                        "upc_reader",
+                        "upc_e_reader"
+                    ],
+                    debug: {
+                        showCanvas: false,
+                        showPatches: false,
+                        showFoundPatches: false,
+                        showSkeleton: false,
+                        showLabels: false,
+                        showPatchLabels: false,
+                        showRemainingPatchLabels: false,
+                        boxFromPatches: {
+                            showTransformed: false,
+                            showTransformedBox: false,
+                            showBB: false
+                        }
+                    }
+                },
+                locate: true,
+                locator: {
+                    halfSample: true,
+                    patchSize: "medium",
+                    debug: {
+                        showCanvas: false,
+                        showPatches: false,
+                        showFoundPatches: false,
+                        showSkeleton: false,
+                        showLabels: false,
+                        showPatchLabels: false,
+                        showRemainingPatchLabels: false,
+                        boxFromPatches: {
+                            showTransformed: false,
+                            showTransformedBox: false,
+                            showBB: false
+                        }
+                    }
+                },
+                numOfWorkers: 2,
+                frequency: 10,
+                debug: false
+            }, function(err) {
+                if (err) {
+                    console.error('Error initializing Quagga:', err);
+                    status.textContent = 'Camera initialization failed';
+                    showCameraFallback();
+                    return;
+                }
+
+                console.log("Quagga initialization finished successfully");
+
+                try {
+                    Quagga.start();
+
+                    // Update UI
+                    startBtn.style.display = 'none';
+                    stopBtn.style.display = 'inline-block';
+                    status.textContent = 'Camera active - Point at barcode to scan';
+                    cameraActive = true;
+                    quaggaInitialized = true;
+
+                } catch (startErr) {
+                    console.error('Error starting Quagga:', startErr);
+                    status.textContent = 'Failed to start camera';
+                    showCameraFallback();
+                }
+            });
+
+            // Listen for successful barcode detection
+            Quagga.onDetected(function(result) {
+                if (result && result.codeResult && result.codeResult.code) {
+                    const barcode = result.codeResult.code;
+                    console.log('Barcode detected:', barcode);
+
+                    // Provide immediate feedback
+                    status.textContent = `Scanned: ${barcode} - Processing...`;
+
+                    // Set the barcode input and process it
+                    @this.set('barcodeInput', barcode);
+                    @this.call('processBarcodeInput');
+
+                    // Stop camera after successful scan
+                    setTimeout(() => {
+                        stopCamera();
+                    }, 1500);
+                }
+            });
+
+            // Handle any processing errors
+            Quagga.onProcessed(function(result) {
+                // Optional: Could add visual feedback here
+            });
+        }
+
+        function stopCamera() {
+            const container = document.getElementById('camera-container');
+            const status = document.getElementById('camera-status');
+            const startBtn = document.getElementById('startCameraBtn');
+            const stopBtn = document.getElementById('stopCameraBtn');
+
+            try {
+                if (quaggaInitialized) {
+                    Quagga.stop();
+                    Quagga.offDetected();
+                    Quagga.offProcessed();
+                    quaggaInitialized = false;
+                }
+            } catch (err) {
+                console.error('Error stopping camera:', err);
+            }
+
+            container.style.display = 'none';
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+            status.textContent = 'Camera stopped - Click "Start Camera" to scan again';
+            cameraActive = false;
+        }
+
+        function showCameraFallback() {
+            const container = document.getElementById('camera-container');
+            const fallback = document.getElementById('camera-fallback');
+            const status = document.getElementById('camera-status');
+            const startBtn = document.getElementById('startCameraBtn');
+            const stopBtn = document.getElementById('stopCameraBtn');
+
+            container.style.display = 'none';
+            fallback.style.display = 'block';
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+            status.textContent = 'Camera not available - Use manual input instead';
+        }
+
+        // Auto-stop camera when modal closes
         document.addEventListener('livewire:init', () => {
             // Auto-focus barcode input when modal opens
             document.addEventListener('livewire:navigated', () => {
                 const input = document.querySelector('[wire\\:model="barcodeInput"]');
                 if (input) {
-                    input.focus();
+                    setTimeout(() => input.focus(), 100);
                 }
             });
         });
@@ -426,6 +638,20 @@
             if (e.ctrlKey && e.key === 'b') {
                 e.preventDefault();
                 @this.call('openBarcodeModal');
+            }
+        });
+
+        // Clean up when page unloads or modal closes
+        window.addEventListener('beforeunload', () => {
+            if (cameraActive) {
+                stopCamera();
+            }
+        });
+
+        // Stop camera when navigating away
+        document.addEventListener('livewire:navigating', () => {
+            if (cameraActive) {
+                stopCamera();
             }
         });
     </script>
