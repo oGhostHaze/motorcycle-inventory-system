@@ -12,6 +12,7 @@ use App\Livewire\Inventory\StockAdjustments;
 use App\Livewire\Sales\PointOfSale;
 use App\Livewire\Sales\SalesHistory;
 use App\Livewire\Sales\CustomerManagement;
+use App\Livewire\Sales\ShiftManagement; // Added shift management
 use App\Livewire\Purchasing\PurchaseOrderManagement;
 use App\Livewire\Purchasing\SupplierManagement;
 use Illuminate\Support\Facades\Route;
@@ -50,6 +51,7 @@ Route::middleware([
         Route::get('/pos', PointOfSale::class)->name('pos');
         Route::get('/history', SalesHistory::class)->name('history');
         Route::get('/customers', CustomerManagement::class)->name('customers');
+        Route::get('/shifts', ShiftManagement::class)->name('shifts'); // Added shift management route
     });
 
     // Purchasing Routes - For users with manage_inventory permission
@@ -115,7 +117,6 @@ Route::middleware([
     });
 
     // Add this to your routes/web.php temporarily for debugging
-
     Route::middleware(['auth'])->get('/debug-permissions', function () {
         $user = auth()->user();
 

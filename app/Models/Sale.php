@@ -16,6 +16,7 @@ class Sale extends Model
         'promotion_code',
         'warehouse_id',
         'user_id',
+        'shift_id', // Added shift association
         'subtotal',
         'discount_amount',
         'tax_amount',
@@ -56,6 +57,12 @@ class Sale extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    // Added shift relationship
+    public function shift()
+    {
+        return $this->belongsTo(SalesShift::class, 'shift_id');
     }
 
     public function items()

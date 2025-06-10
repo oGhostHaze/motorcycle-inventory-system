@@ -34,3 +34,7 @@
 .mary-table-pagination button {
     @apply cursor-pointer
 }
+
+.badge {
+  @apply whitespace-nowrap;
+}

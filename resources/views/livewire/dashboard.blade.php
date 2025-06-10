@@ -9,11 +9,11 @@
     {{-- Stats Cards --}}
     <div class="grid grid-cols-1 gap-6 mb-8 md:grid-cols-2 lg:grid-cols-4">
         {{-- Today's Sales --}}
-        <x-mary-stat title="Today's Sales" description="Total sales today" value="₱{{ $todaysSales }}"
+        <x-mary-stat title="Today's Sales" description="Total sales today" value="₱{{ number_format($todaysSales, 2) }}"
             icon="o-currency-dollar" color="text-primary" class="bg-gradient-to-r from-primary/10 to-primary/5" />
 
         {{-- Monthly Sales --}}
-        <x-mary-stat title="Monthly Sales" description="Sales this month" value="₱{{ $monthSales }}"
+        <x-mary-stat title="Monthly Sales" description="Sales this month" value="₱{{ number_format($monthSales, 2) }}"
             icon="o-chart-bar" color="text-success" class="bg-gradient-to-r from-success/10 to-success/5" />
 
         {{-- Total Products --}}
@@ -21,8 +21,9 @@
             icon="o-cube" color="text-info" class="bg-gradient-to-r from-info/10 to-info/5" />
 
         {{-- Inventory Value --}}
-        <x-mary-stat title="Inventory Value" description="Total stock worth" value="₱{{ $totalInventoryValue }}"
-            icon="o-banknotes" color="text-warning" class="bg-gradient-to-r from-warning/10 to-warning/5" />
+        <x-mary-stat title="Inventory Value" description="Total stock worth"
+            value="₱{{ number_format($totalInventoryValue, 2) }}" icon="o-banknotes" color="text-warning"
+            class="bg-gradient-to-r from-warning/10 to-warning/5" />
     </div>
 
     {{-- Alert Cards --}}
@@ -33,7 +34,8 @@
                     description="{{ $lowStockItems }} products are running low on stock" icon="o-exclamation-triangle"
                     class="alert-warning">
                     <x-slot:actions>
-                        <x-mary-button label="View Items" link="#" size="sm" class="btn-warning" />
+                        <x-mary-button label="View Items" link="{{ route('inventory.low-stock-alerts') }}"
+                            size="sm" class="btn-warning" />
                     </x-slot:actions>
                 </x-mary-alert>
             @endif
@@ -42,7 +44,8 @@
                 <x-mary-alert title="Pending Orders" description="{{ $pendingOrders }} purchase orders need attention"
                     icon="o-document-text" class="alert-info">
                     <x-slot:actions>
-                        <x-mary-button label="View Orders" link="#" size="sm" class="btn-info" />
+                        <x-mary-button label="View Orders" link="{{ route('purchasing.purchase-orders') }}"
+                            size="sm" class="btn-info" />
                     </x-slot:actions>
                 </x-mary-alert>
             @endif
@@ -73,13 +76,16 @@
         <div class="lg:col-span-4">
             <x-mary-card title="Quick Actions" subtitle="Common tasks">
                 <div class="space-y-3">
-                    <x-mary-button label="Process Sale" icon="o-shopping-cart" link="#"
+                    <x-mary-button label="Process Sale" icon="o-shopping-cart" link="{{ route('sales.pos') }}"
                         class="w-full btn-primary" />
-                    <x-mary-button label="Add Product" icon="o-plus" link="#" class="w-full btn-secondary" />
-                    <x-mary-button label="Stock Adjustment" icon="o-adjustments-horizontal" link="#"
-                        class="w-full btn-accent" />
-                    <x-mary-button label="Create PO" icon="o-document-plus" link="#" class="w-full btn-info" />
-                    <x-mary-button label="Barcode Scanner" icon="o-qr-code" link="#" class="w-full btn-warning" />
+                    <x-mary-button label="Add Product" icon="o-plus" link="{{ route('inventory.products') }}"
+                        class="w-full btn-secondary" />
+                    <x-mary-button label="Stock Adjustment" icon="o-adjustments-horizontal"
+                        link="{{ route('inventory.stock-adjustments') }}" class="w-full btn-accent" />
+                    <x-mary-button label="Create PO" icon="o-document-plus"
+                        link="{{ route('purchasing.purchase-orders') }}" class="w-full btn-info" />
+                    <x-mary-button label="View Inventory" icon="o-cube" link="{{ route('inventory.stock-levels') }}"
+                        class="w-full btn-warning" />
                 </div>
             </x-mary-card>
         </div>
@@ -93,7 +99,37 @@
                             <div>
                                 <div class="font-medium">{{ $sale->invoice_number }}</div>
                                 <div class="text-sm text-gray-500">
-                                    {{ $movement->type }} • {{ $movement->created_at->diffForHumans() }}
+                                    {{ $sale->customer?->name ?? 'Walk-in Customer' }} •
+                                    {{ $sale->created_at->diffForHumans() }}
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-success">
+                                    ₱{{ number_format($sale->total_amount, 2) }}
+                                </div>
+                                <div class="text-sm text-gray-500">{{ $sale->warehouse->name ?? 'Unknown' }}</div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="py-8 text-center">
+                            <x-heroicon-o-shopping-cart class="w-8 h-8 mx-auto text-gray-400" />
+                            <p class="mt-2 text-gray-500">No recent sales</p>
+                        </div>
+                    @endforelse
+                </div>
+            </x-mary-card>
+        </div>
+
+        {{-- Recent Stock Movements --}}
+        <div class="lg:col-span-6">
+            <x-mary-card title="Recent Stock Movements" subtitle="Latest inventory changes">
+                <div class="space-y-3">
+                    @forelse($recentStockMovements as $movement)
+                        <div class="flex items-center justify-between p-3 rounded-lg bg-base-200">
+                            <div>
+                                <div class="font-medium">{{ $movement->product->name }}</div>
+                                <div class="text-sm text-gray-500">
+                                    {{ ucfirst($movement->type) }} • {{ $movement->created_at->diffForHumans() }}
                                 </div>
                             </div>
                             <div class="text-right">
@@ -111,6 +147,68 @@
                         </div>
                     @endforelse
                 </div>
+            </x-mary-card>
+        </div>
+
+        {{-- Top Products --}}
+        <div class="lg:col-span-6">
+            <x-mary-card title="Top Selling Products" subtitle="This month's best performers">
+                <div class="space-y-3">
+                    @forelse($topProducts as $product)
+                        <div class="flex items-center justify-between p-3 rounded-lg bg-base-200">
+                            <div>
+                                <div class="font-medium">{{ $product->name }}</div>
+                                <div class="text-sm text-gray-500">{{ $product->sku }}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-primary">
+                                    {{ $product->sales_count }} sold
+                                </div>
+                                <div class="text-sm text-gray-500">₱{{ number_format($product->selling_price, 2) }}
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="py-8 text-center">
+                            <x-heroicon-o-cube class="w-8 h-8 mx-auto text-gray-400" />
+                            <p class="mt-2 text-gray-500">No sales data</p>
+                        </div>
+                    @endforelse
+                </div>
+            </x-mary-card>
+        </div>
+
+        {{-- Low Stock Products --}}
+        <div class="lg:col-span-6">
+            <x-mary-card title="Low Stock Alert" subtitle="Products need attention">
+                <div class="space-y-3">
+                    @forelse($lowStockProducts as $product)
+                        <div
+                            class="flex items-center justify-between p-3 border rounded-lg bg-warning/10 border-warning/20">
+                            <div>
+                                <div class="font-medium">{{ $product->name }}</div>
+                                <div class="text-sm text-gray-500">{{ $product->sku }}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-warning">
+                                    {{ $product->total_stock ?? 0 }} left
+                                </div>
+                                <div class="text-sm text-gray-500">Min: {{ $product->min_stock_level ?? 0 }}</div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="py-8 text-center">
+                            <x-heroicon-o-check-circle class="w-8 h-8 mx-auto text-green-400" />
+                            <p class="mt-2 text-gray-500">All products well stocked</p>
+                        </div>
+                    @endforelse
+                </div>
+                @if (count($lowStockProducts) > 0)
+                    <div class="mt-4">
+                        <x-mary-button label="View All Alerts" link="{{ route('inventory.low-stock-alerts') }}"
+                            class="w-full btn-warning btn-sm" />
+                    </div>
+                @endif
             </x-mary-card>
         </div>
     </div>
