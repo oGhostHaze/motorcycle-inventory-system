@@ -73,7 +73,7 @@
                                 </div>
                             </td>
                             <td>
-                                <div class="text-xs text-center">
+                                <div class="flex space-x-1 text-xs text-center">
                                     <div>{{ number_format($adjustment->quantity_before) }}</div>
                                     <div class="text-gray-400">→</div>
                                     <div class="font-semibold">{{ number_format($adjustment->quantity_after) }}</div>
@@ -118,18 +118,15 @@
 
         <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
-                <x-mary-select label="Product" :options="$products->map(fn($p) => ['value' => $p->id, 'label' => $p->name . ' (' . $p->sku . ')'])" wire:model="selectedProduct"
+                <x-mary-select label="Product" :options="$products" wire:model="selectedProduct"
                     placeholder="Select product" />
 
-                <x-mary-select label="Warehouse" :options="$warehouses->map(fn($w) => ['value' => $w->id, 'label' => $w->name])" wire:model="selectedWarehouse"
+                <x-mary-select label="Warehouse" :options="$warehouses" wire:model="selectedWarehouse"
                     placeholder="Select warehouse" />
             </div>
 
             <div class="grid grid-cols-2 gap-4">
-                <x-mary-select label="Adjustment Type" :options="[
-                    ['value' => 'in', 'label' => 'Stock In (+)'],
-                    ['value' => 'out', 'label' => 'Stock Out (-)'],
-                ]" wire:model="adjustmentType" />
+                <x-mary-select label="Adjustment Type" :options="[['id' => 'in', 'name' => 'Stock In (+)'], ['id' => 'out', 'name' => 'Stock Out (-)']]" wire:model="adjustmentType" />
 
                 <x-mary-input label="Quantity" wire:model="quantity" type="number" min="1"
                     placeholder="Enter quantity" />
@@ -149,7 +146,7 @@
 
     {{-- Bulk Adjustments Modal --}}
     <x-mary-modal wire:model="showBulkModal" title="Bulk Stock Adjustments"
-        subtitle="Process multiple adjustments at once">
+        subtitle="Process multiple adjustments at once" box-class="max-w-7xl">
 
         <div class="space-y-4">
             <div class="flex items-center justify-between">
@@ -164,17 +161,14 @@
                     @foreach ($bulkAdjustments as $index => $adjustment)
                         <div class="p-4 border rounded-lg bg-base-200">
                             <div class="grid items-end grid-cols-6 gap-3">
-                                <x-mary-select label="Product" :options="$products->map(fn($p) => ['value' => $p->id, 'label' => $p->name])"
+                                <x-mary-select label="Product" :options="$products"
                                     wire:model="bulkAdjustments.{{ $index }}.product_id" placeholder="Select" />
 
-                                <x-mary-select label="Warehouse" :options="$warehouses->map(fn($w) => ['value' => $w->id, 'label' => $w->name])"
+                                <x-mary-select label="Warehouse" :options="$warehouses"
                                     wire:model="bulkAdjustments.{{ $index }}.warehouse_id"
                                     placeholder="Select" />
 
-                                <x-mary-select label="Type" :options="[
-                                    ['value' => 'in', 'label' => 'In (+)'],
-                                    ['value' => 'out', 'label' => 'Out (-)'],
-                                ]"
+                                <x-mary-select label="Type" :options="[['id' => 'in', 'name' => 'In (+)'], ['id' => 'out', 'name' => 'Out (-)']]"
                                     wire:model="bulkAdjustments.{{ $index }}.type" />
 
                                 <x-mary-input label="Quantity"

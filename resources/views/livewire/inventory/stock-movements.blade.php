@@ -77,7 +77,7 @@
                                 </div>
                             </td>
                             <td>
-                                <div class="text-xs text-center">
+                                <div class="flex space-x-1 text-xs text-center">
                                     <div>{{ number_format($movement->quantity_before) }}</div>
                                     <div class="text-gray-400">→</div>
                                     <div class="font-semibold">{{ number_format($movement->quantity_after) }}</div>

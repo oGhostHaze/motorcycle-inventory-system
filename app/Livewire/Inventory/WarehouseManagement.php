@@ -4,9 +4,13 @@ namespace App\Livewire\Inventory;
 
 use App\Models\Warehouse;
 use App\Models\Inventory;
+use App\Models\Product;
+use App\Models\StockMovement;
+use App\Models\StockTransfer;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
+use Illuminate\Support\Facades\DB;
 
 class WarehouseManagement extends Component
 {
@@ -16,6 +20,19 @@ class WarehouseManagement extends Component
     public bool $showModal = false;
     public bool $editMode = false;
     public ?Warehouse $selectedWarehouse = null;
+
+    // View Inventory Modal
+    public bool $showInventoryModal = false;
+    public ?Warehouse $inventoryWarehouse = null;
+    public $inventoryData = [];
+
+    // Stock Transfer Modal
+    public bool $showTransferModal = false;
+    public ?Warehouse $transferFromWarehouse = null;
+    public $transferToWarehouse = '';
+    public $transferProduct = '';
+    public $transferQuantity = '';
+    public string $transferNotes = '';
 
     // Form fields
     public string $name = '';
@@ -32,6 +49,9 @@ class WarehouseManagement extends Component
     public string $typeFilter = '';
     public string $statusFilter = '';
 
+    // Inventory search
+    public string $inventorySearch = '';
+
     protected array $rules = [
         'name' => 'required|string|max:255',
         'code' => 'required|string|max:10|unique:warehouses,code',
@@ -41,6 +61,13 @@ class WarehouseManagement extends Component
         'phone' => 'nullable|string|max:20',
         'type' => 'required|in:main,retail,storage,overflow',
         'is_active' => 'boolean',
+    ];
+
+    protected array $transferRules = [
+        'transferToWarehouse' => 'required|exists:warehouses,id|different:transferFromWarehouse.id',
+        'transferProduct' => 'required|exists:products,id',
+        'transferQuantity' => 'required|integer|min:1',
+        'transferNotes' => 'nullable|string|max:500',
     ];
 
     public function render()
@@ -131,46 +158,255 @@ class WarehouseManagement extends Component
             $this->showModal = false;
             $this->resetForm();
         } catch (\Exception $e) {
-            $this->error('Error saving warehouse: ' . $e->getMessage());
+            $this->error('An error occurred: ' . $e->getMessage());
         }
     }
 
     public function deleteWarehouse(Warehouse $warehouse)
     {
         try {
-            if ($warehouse->inventory()->exists() || $warehouse->sales()->exists()) {
-                $this->error('Cannot delete warehouse with existing inventory or sales records.');
+            // Check if warehouse has inventory
+            if ($warehouse->inventory()->sum('quantity_on_hand') > 0) {
+                $this->error('Cannot delete warehouse with existing inventory. Please transfer or remove all stock first.');
+                return;
+            }
+
+            // Check if warehouse has pending sales or purchase orders
+            if (
+                $warehouse->sales()->whereIn('status', ['pending', 'processing'])->exists() ||
+                $warehouse->purchaseOrders()->whereIn('status', ['pending', 'ordered'])->exists()
+            ) {
+                $this->error('Cannot delete warehouse with pending orders. Please complete or cancel all pending orders first.');
                 return;
             }
 
             $warehouse->delete();
             $this->success('Warehouse deleted successfully!');
         } catch (\Exception $e) {
-            $this->error('Error deleting warehouse: ' . $e->getMessage());
+            $this->error('An error occurred while deleting the warehouse.');
         }
     }
 
-    public function toggleStatus(Warehouse $warehouse)
+    // View Inventory Functions
+    public function viewInventory(Warehouse $warehouse)
     {
-        $warehouse->update(['is_active' => !$warehouse->is_active]);
-        $status = $warehouse->is_active ? 'activated' : 'deactivated';
-        $this->success("Warehouse {$status} successfully!");
+        $this->inventoryWarehouse = $warehouse;
+        $this->loadInventoryData();
+        $this->showInventoryModal = true;
     }
 
-    public function generateCode()
+    public function loadInventoryData()
     {
-        $this->code = strtoupper(substr($this->name, 0, 4) . str_pad(mt_rand(1, 99), 2, '0', STR_PAD_LEFT));
+        if (!$this->inventoryWarehouse) return;
+
+        $query = Inventory::with(['product.category', 'product.brand'])
+            ->where('warehouse_id', $this->inventoryWarehouse->id)
+            ->where('quantity_on_hand', '>', 0);
+
+        if ($this->inventorySearch) {
+            $query->whereHas('product', function ($q) {
+                $q->where('name', 'like', '%' . $this->inventorySearch . '%')
+                    ->orWhere('sku', 'like', '%' . $this->inventorySearch . '%');
+            });
+        }
+
+        $this->inventoryData = $query->orderBy('quantity_on_hand', 'desc')->get();
     }
 
-    public function clearFilters()
+    public function updatedInventorySearch()
     {
-        $this->reset(['search', 'typeFilter', 'statusFilter']);
+        $this->loadInventoryData();
     }
 
-    private function resetForm()
+    // Stock Transfer Functions
+    public function openStockTransfer(Warehouse $fromWarehouse)
     {
-        $this->reset(['name', 'code', 'address', 'city', 'manager_name', 'phone', 'type', 'is_active']);
-        $this->type = 'main';
-        $this->is_active = true;
+        $this->transferFromWarehouse = $fromWarehouse;
+        $this->resetTransferForm();
+        $this->showTransferModal = true;
+    }
+
+    public function processStockTransfer()
+    {
+        $this->validate($this->transferRules);
+
+        try {
+            DB::beginTransaction();
+
+            // Get source inventory
+            $sourceInventory = Inventory::where('warehouse_id', $this->transferFromWarehouse->id)
+                ->where('product_id', $this->transferProduct)
+                ->first();
+
+            if (!$sourceInventory || $sourceInventory->quantity_available < $this->transferQuantity) {
+                $this->error('Insufficient stock available for transfer.');
+                return;
+            }
+
+            // Create the main StockTransfer record
+            $stockTransfer = StockTransfer::create([
+                'from_warehouse_id' => $this->transferFromWarehouse->id,
+                'to_warehouse_id' => $this->transferToWarehouse,
+                'initiated_by' => auth()->id(),
+                'status' => 'shipped', // Auto-complete for direct transfers
+                'transfer_date' => now(),
+                'shipped_at' => now(),
+                'received_at' => now(), // Auto-receive for direct transfers
+                'received_by' => auth()->id(),
+                'notes' => $this->transferNotes,
+            ]);
+
+            // Create the transfer item
+            $product = Product::find($this->transferProduct);
+            $stockTransfer->items()->create([
+                'product_id' => $this->transferProduct,
+                'quantity_shipped' => $this->transferQuantity,
+                'quantity_received' => $this->transferQuantity,
+                'unit_cost' => $sourceInventory->average_cost ?? $product->cost_price,
+                'notes' => 'Direct transfer',
+            ]);
+
+            // Get or create destination inventory
+            $destinationInventory = Inventory::firstOrCreate(
+                [
+                    'warehouse_id' => $this->transferToWarehouse,
+                    'product_id' => $this->transferProduct,
+                ],
+                [
+                    'quantity_on_hand' => 0,
+                    'quantity_reserved' => 0,
+                    'quantity_available' => 0,
+                ]
+            );
+
+            // Store old quantities for stock movements
+            $sourceOldQuantity = $sourceInventory->quantity_on_hand;
+            $destOldQuantity = $destinationInventory->quantity_on_hand;
+
+            // Update quantities
+            $sourceInventory->decrement('quantity_on_hand', $this->transferQuantity);
+            $destinationInventory->increment('quantity_on_hand', $this->transferQuantity);
+
+            // Update available quantities
+            $sourceInventory->update(['quantity_available' => $sourceInventory->quantity_on_hand - $sourceInventory->quantity_reserved]);
+            $destinationInventory->update(['quantity_available' => $destinationInventory->quantity_on_hand - $destinationInventory->quantity_reserved]);
+
+            // Create stock movements with proper reference to the StockTransfer
+            $unitCost = $sourceInventory->average_cost ?? $product->cost_price;
+
+            // Transfer out movement
+            StockMovement::create([
+                'product_id' => $this->transferProduct,
+                'warehouse_id' => $this->transferFromWarehouse->id,
+                'type' => 'transfer',
+                'quantity_before' => $sourceOldQuantity,
+                'quantity_changed' => -$this->transferQuantity,
+                'quantity_after' => $sourceInventory->quantity_on_hand,
+                'unit_cost' => $unitCost,
+                'reference_type' => StockTransfer::class,
+                'reference_id' => $stockTransfer->id,
+                'user_id' => auth()->id(),
+                'notes' => 'Transfer OUT to ' . Warehouse::find($this->transferToWarehouse)->name . ' (Transfer #' . $stockTransfer->transfer_number . ')',
+            ]);
+
+            // Transfer in movement
+            StockMovement::create([
+                'product_id' => $this->transferProduct,
+                'warehouse_id' => $this->transferToWarehouse,
+                'type' => 'transfer',
+                'quantity_before' => $destOldQuantity,
+                'quantity_changed' => $this->transferQuantity,
+                'quantity_after' => $destinationInventory->quantity_on_hand,
+                'unit_cost' => $unitCost,
+                'reference_type' => StockTransfer::class,
+                'reference_id' => $stockTransfer->id,
+                'user_id' => auth()->id(),
+                'notes' => 'Transfer IN from ' . $this->transferFromWarehouse->name . ' (Transfer #' . $stockTransfer->transfer_number . ')',
+            ]);
+
+            DB::commit();
+
+            $this->success('Stock transfer completed successfully! Transfer #' . $stockTransfer->transfer_number);
+            $this->showTransferModal = false;
+            $this->resetTransferForm();
+        } catch (\Exception $e) {
+            DB::rollback();
+            $this->error('An error occurred during stock transfer: ' . $e->getMessage());
+        }
+    }
+
+    public function getAvailableProducts()
+    {
+        if (!$this->transferFromWarehouse) return collect();
+
+        return Inventory::with('product')
+            ->where('warehouse_id', $this->transferFromWarehouse->id)
+            ->where('quantity_available', '>', 0)
+            ->get()
+            ->map(fn($inventory) => [
+                'value' => $inventory->product_id,
+                'label' => $inventory->product->name . ' (Available: ' . $inventory->quantity_available . ')'
+            ]);
+    }
+
+    public function getDestinationWarehouses()
+    {
+        return Warehouse::where('is_active', true)
+            ->where('id', '!=', $this->transferFromWarehouse?->id)
+            ->get()
+            ->map(fn($warehouse) => [
+                'value' => $warehouse->id,
+                'label' => $warehouse->name . ' (' . $warehouse->code . ')'
+            ]);
+    }
+
+    public function getMaxTransferQuantity()
+    {
+        if (!$this->transferFromWarehouse || !$this->transferProduct) return 0;
+
+        $inventory = Inventory::where('warehouse_id', $this->transferFromWarehouse->id)
+            ->where('product_id', $this->transferProduct)
+            ->first();
+
+        return $inventory ? $inventory->quantity_available : 0;
+    }
+
+    public function resetForm()
+    {
+        $this->reset([
+            'name',
+            'code',
+            'address',
+            'city',
+            'manager_name',
+            'phone',
+            'type',
+            'is_active'
+        ]);
+    }
+
+    public function resetTransferForm()
+    {
+        $this->reset([
+            'transferToWarehouse',
+            'transferProduct',
+            'transferQuantity',
+            'transferNotes'
+        ]);
+    }
+
+    public function closeInventoryModal()
+    {
+        $this->showInventoryModal = false;
+        $this->inventoryWarehouse = null;
+        $this->inventoryData = [];
+        $this->inventorySearch = '';
+    }
+
+    public function closeTransferModal()
+    {
+        $this->showTransferModal = false;
+        $this->transferFromWarehouse = null;
+        $this->resetTransferForm();
     }
 }

@@ -25,7 +25,8 @@ class StockMovements extends Component
 
     public function render()
     {
-        $movements = StockMovement::with(['product', 'warehouse', 'user', 'reference'])
+        // Load movements without the problematic 'reference' relationship
+        $movements = StockMovement::with(['product', 'warehouse', 'user'])
             ->when($this->search, fn($q) => $q->whereHas('product', function ($query) {
                 $query->where('name', 'like', '%' . $this->search . '%')
                     ->orWhere('sku', 'like', '%' . $this->search . '%');
@@ -63,9 +64,10 @@ class StockMovements extends Component
                 ['value' => 'sale', 'label' => 'Sale'],
                 ['value' => 'purchase', 'label' => 'Purchase'],
                 ['value' => 'adjustment', 'label' => 'Adjustment'],
-                ['value' => 'transfer_out', 'label' => 'Transfer Out'],
-                ['value' => 'transfer_in', 'label' => 'Transfer In'],
+                ['value' => 'transfer', 'label' => 'Transfer'],
                 ['value' => 'return', 'label' => 'Return'],
+                ['value' => 'damaged', 'label' => 'Damaged'],
+                ['value' => 'cycle_count', 'label' => 'Cycle Count'],
             ],
             'dates' => [
                 ['value' => '', 'label' => 'All Time'],
@@ -91,9 +93,10 @@ class StockMovements extends Component
     {
         return match ($type) {
             'sale' => 'error',
-            'purchase', 'transfer_in', 'return' => 'success',
+            'purchase', 'transfer', 'return' => 'success',
             'adjustment' => 'warning',
-            'transfer_out' => 'info',
+            'damaged' => 'error',
+            'cycle_count' => 'info',
             default => 'neutral',
         };
     }
@@ -104,10 +107,30 @@ class StockMovements extends Component
             'sale' => 'o-shopping-cart',
             'purchase' => 'o-truck',
             'adjustment' => 'o-adjustments-horizontal',
-            'transfer_out' => 'o-arrow-right',
-            'transfer_in' => 'o-arrow-left',
+            'transfer' => 'o-arrow-path',
             'return' => 'o-arrow-uturn-left',
+            'damaged' => 'o-exclamation-triangle',
+            'cycle_count' => 'o-clipboard-document-check',
             default => 'o-cube',
         };
+    }
+
+    public function getReferenceDescription($movement)
+    {
+        // Handle reference descriptions safely without loading the relationship
+        if ($movement->reference_type && $movement->reference_id) {
+            switch ($movement->reference_type) {
+                case 'App\\Models\\StockTransfer':
+                    return "Transfer #{$movement->reference_id}";
+                case 'App\\Models\\Sale':
+                    return "Sale #{$movement->reference_id}";
+                case 'App\\Models\\PurchaseOrder':
+                    return "PO #{$movement->reference_id}";
+                default:
+                    return "Ref #{$movement->reference_id}";
+            }
+        }
+
+        return 'Manual Entry';
     }
 }
