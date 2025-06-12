@@ -6,6 +6,7 @@ use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Models\Category;
+use App\Models\StockMovement;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
@@ -16,7 +17,9 @@ class StockLevels extends Component
     use Toast;
 
     public bool $showAdjustmentModal = false;
+    public bool $showDetailsModal = false; // Add this property
     public ?Inventory $selectedInventory = null;
+    public ?Product $selectedProduct = null; // Add this property
 
     // Adjustment form fields
     public $adjustment_quantity = '';
@@ -46,80 +49,144 @@ class StockLevels extends Component
                 $query->where('category_id', $this->categoryFilter);
             }))
             ->when($this->stockFilter, function ($q) {
-                switch ($this->stockFilter) {
-                    case 'low':
-                        return $q->whereHas('product', function ($query) {
-                            $query->whereRaw('inventories.quantity_on_hand <= products.min_stock_level');
-                        });
-                    case 'out':
-                        return $q->where('quantity_on_hand', 0);
-                    case 'over':
-                        return $q->whereHas('product', function ($query) {
-                            $query->whereRaw('inventories.quantity_on_hand > products.max_stock_level');
-                        });
-                    case 'good':
-                        return $q->whereHas('product', function ($query) {
-                            $query->whereRaw('inventories.quantity_on_hand > products.min_stock_level')
-                                ->whereRaw('inventories.quantity_on_hand <= products.max_stock_level');
-                        });
+                if ($this->stockFilter === 'low') {
+                    $q->whereHas('product', function ($query) {
+                        $query->whereColumn('inventories.quantity_available', '<=', 'products.min_stock_level')
+                            ->whereNotNull('products.min_stock_level');
+                    });
+                } elseif ($this->stockFilter === 'out') {
+                    $q->where('quantity_available', '<=', 0);
+                } elseif ($this->stockFilter === 'in_stock') {
+                    $q->where('quantity_available', '>', 0);
                 }
             })
             ->when($this->statusFilter, fn($q) => $q->whereHas('product', function ($query) {
                 $query->where('status', $this->statusFilter);
             }))
-            ->orderBy('quantity_on_hand')
-            ->paginate(24);
+            ->orderBy('quantity_available', 'asc')
+            ->paginate(20);
 
-        $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
-        $categories = Category::where('is_active', true)->orderBy('name')->get();
+        // Calculate summary stats
+        $totalItems = Inventory::sum('quantity_on_hand');
+        $totalValue = Inventory::with('product')
+            ->get()
+            ->sum(function ($item) {
+                return $item->quantity_on_hand * $item->product->cost_price;
+            });
+        $lowStockCount = Inventory::whereHas('product', function ($query) {
+            $query->whereColumn('inventories.quantity_available', '<=', 'products.min_stock_level')
+                ->whereNotNull('products.min_stock_level');
+        })->count();
+        $outOfStockCount = Inventory::where('quantity_available', '<=', 0)->count();
 
+        // Filter options
         $filterOptions = [
-            'warehouses' => $warehouses->map(fn($w) => ['value' => $w->id, 'label' => $w->name]),
-            'categories' => $categories->map(fn($c) => ['value' => $c->id, 'label' => $c->name]),
+            'warehouses' => Warehouse::where('is_active', true)
+                ->get(['id as value', 'name as label'])
+                ->toArray(),
+            'categories' => Category::get(['id as value', 'name as label'])
+                ->toArray(),
             'stock' => [
                 ['value' => '', 'label' => 'All Stock Levels'],
-                ['value' => 'out', 'label' => 'Out of Stock'],
+                ['value' => 'in_stock', 'label' => 'In Stock'],
                 ['value' => 'low', 'label' => 'Low Stock'],
-                ['value' => 'good', 'label' => 'Good Stock'],
-                ['value' => 'over', 'label' => 'Overstock'],
+                ['value' => 'out', 'label' => 'Out of Stock'],
             ],
             'status' => [
-                ['value' => '', 'label' => 'All Products'],
-                ['value' => 'active', 'label' => 'Active Only'],
-                ['value' => 'inactive', 'label' => 'Inactive Only'],
+                ['value' => '', 'label' => 'All Status'],
+                ['value' => 'active', 'label' => 'Active'],
+                ['value' => 'inactive', 'label' => 'Inactive'],
                 ['value' => 'discontinued', 'label' => 'Discontinued'],
             ]
         ];
 
-        // Calculate summary stats
-        $totalItems = Inventory::sum('quantity_on_hand');
-        $totalValue = Inventory::join('products', 'inventories.product_id', '=', 'products.id')
-            ->selectRaw('SUM(inventories.quantity_on_hand * products.cost_price) as total')
-            ->value('total') ?? 0;
-        $lowStockCount = Inventory::whereHas('product', function ($query) {
-            $query->whereRaw('inventories.quantity_on_hand <= products.min_stock_level');
-        })->count();
-        $outOfStockCount = Inventory::where('quantity_on_hand', 0)->count();
-
         return view('livewire.inventory.stock-levels', [
             'inventory' => $inventory,
-            'filterOptions' => $filterOptions,
             'totalItems' => $totalItems,
             'totalValue' => $totalValue,
             'lowStockCount' => $lowStockCount,
             'outOfStockCount' => $outOfStockCount,
-        ])->layout('layouts.app', ['title' => 'Stock Levels']);
+            'filterOptions' => $filterOptions,
+        ]);
     }
 
-    public function openAdjustmentModal(Inventory $inventory)
+    public function setViewMode($mode)
     {
+        $this->viewMode = $mode;
+    }
+
+    public function refreshData()
+    {
+        $this->resetPage();
+        $this->success('Data refreshed!');
+    }
+
+    public function clearFilters()
+    {
+        $this->reset(['search', 'warehouseFilter', 'categoryFilter', 'stockFilter', 'statusFilter']);
+        $this->resetPage();
+    }
+
+    // Add this new method for viewing product details
+    public function viewDetails($inventoryId)
+    {
+        $inventory = Inventory::with([
+            'product.category',
+            'product.subcategory',
+            'product.brand',
+            'warehouse'
+        ])->find($inventoryId);
+
+        if (!$inventory) {
+            $this->error('Inventory item not found.');
+            return;
+        }
+
         $this->selectedInventory = $inventory;
-        $this->adjustment_quantity = '';
-        $this->adjustment_type = 'in';
-        $this->adjustment_reason = '';
-        $this->adjustment_notes = '';
+
+        // Load the product with additional details including recent stock movements
+        $this->selectedProduct = Product::with([
+            'category',
+            'subcategory',
+            'brand',
+            'inventory.warehouse',
+            'stockMovements' => function ($query) {
+                $query->orderBy('created_at', 'desc')->limit(10);
+            }
+        ])->find($inventory->product_id);
+
+        $this->showDetailsModal = true;
+    }
+
+    // Add this new method for transitioning from details to adjustment modal
+    public function openAdjustmentFromDetails()
+    {
+        if (!$this->selectedInventory) {
+            $this->error('No inventory item selected.');
+            return;
+        }
+
+        // Close the details modal first
+        $this->showDetailsModal = false;
+
+        // Reset adjustment form
+        $this->resetAdjustmentForm();
+
+        // Small delay to ensure modal transition, then open adjustment modal
+        $this->dispatch('open-adjustment-modal');
+    }
+
+    public function openAdjustmentModal($inventoryId)
+    {
+        $this->selectedInventory = Inventory::with(['product', 'warehouse'])->find($inventoryId);
+
+        if (!$this->selectedInventory) {
+            $this->error('Inventory item not found.');
+            return;
+        }
+
+        $this->resetAdjustmentForm();
         $this->showAdjustmentModal = true;
-        $this->resetValidation();
     }
 
     public function processAdjustment()
@@ -128,87 +195,73 @@ class StockLevels extends Component
             'adjustment_quantity' => 'required|integer|min:1',
             'adjustment_type' => 'required|in:in,out',
             'adjustment_reason' => 'required|string|max:255',
-            'adjustment_notes' => 'nullable|string',
         ]);
 
         try {
             $oldQuantity = $this->selectedInventory->quantity_on_hand;
-            $changeQuantity = $this->adjustment_type === 'in'
-                ? $this->adjustment_quantity
-                : -$this->adjustment_quantity;
 
-            $newQuantity = $oldQuantity + $changeQuantity;
-
-            // Prevent negative quantities
-            if ($newQuantity < 0) {
-                $this->error('Cannot reduce stock below zero. Available quantity: ' . $oldQuantity);
-                return;
+            if ($this->adjustment_type === 'in') {
+                $newQuantity = $oldQuantity + $this->adjustment_quantity;
+                $changeQuantity = $this->adjustment_quantity;
+            } else {
+                $newQuantity = max(0, $oldQuantity - $this->adjustment_quantity);
+                $changeQuantity = -$this->adjustment_quantity;
             }
 
             // Update inventory
             $this->selectedInventory->update([
                 'quantity_on_hand' => $newQuantity,
-                'last_counted_at' => now(),
+                'quantity_available' => $newQuantity - $this->selectedInventory->quantity_reserved,
             ]);
 
-            // Create stock movement record
-            $this->selectedInventory->product->stockMovements()->create([
+            // Create stock movement record with correct column names
+            StockMovement::create([
+                'product_id' => $this->selectedInventory->product_id,
                 'warehouse_id' => $this->selectedInventory->warehouse_id,
                 'type' => 'adjustment',
                 'quantity_before' => $oldQuantity,
                 'quantity_changed' => $changeQuantity,
                 'quantity_after' => $newQuantity,
-                'unit_cost' => $this->selectedInventory->average_cost,
+                'unit_cost' => $this->selectedInventory->average_cost ?? $this->selectedInventory->product->cost_price,
                 'user_id' => auth()->id(),
                 'notes' => $this->adjustment_reason . ($this->adjustment_notes ? ' - ' . $this->adjustment_notes : ''),
             ]);
 
-            $this->success('Stock adjustment completed successfully!');
+            $this->success('Stock adjustment processed successfully!');
             $this->showAdjustmentModal = false;
+            $this->resetAdjustmentForm();
         } catch (\Exception $e) {
             $this->error('Error processing adjustment: ' . $e->getMessage());
         }
     }
 
-    public function setViewMode($mode)
+    private function resetAdjustmentForm()
     {
-        $this->viewMode = $mode;
+        $this->adjustment_quantity = '';
+        $this->adjustment_type = 'in';
+        $this->adjustment_reason = '';
+        $this->adjustment_notes = '';
     }
 
-    public function clearFilters()
+    public function getStockStatusText($item)
     {
-        $this->reset(['search', 'warehouseFilter', 'categoryFilter', 'stockFilter', 'statusFilter']);
+        if ($item->quantity_available <= 0) {
+            return 'Out of Stock';
+        } elseif ($item->product->min_stock_level && $item->quantity_available <= $item->product->min_stock_level) {
+            return 'Low Stock';
+        } else {
+            return 'In Stock';
+        }
     }
 
-    public function refreshData()
+    public function getStockStatusClass($item)
     {
-        $this->dispatch('notify', [
-            'type' => 'success',
-            'message' => 'Stock levels refreshed!'
-        ]);
-    }
-
-    public function getStockStatusClass($inventory)
-    {
-        $quantity = $inventory->quantity_on_hand;
-        $minLevel = $inventory->product->min_stock_level ?? 0;
-        $maxLevel = $inventory->product->max_stock_level ?? 999999;
-
-        if ($quantity == 0) return 'error';
-        if ($quantity <= $minLevel) return 'warning';
-        if ($quantity > $maxLevel) return 'info';
-        return 'success';
-    }
-
-    public function getStockStatusText($inventory)
-    {
-        $quantity = $inventory->quantity_on_hand;
-        $minLevel = $inventory->product->min_stock_level ?? 0;
-        $maxLevel = $inventory->product->max_stock_level ?? 999999;
-
-        if ($quantity == 0) return 'Out of Stock';
-        if ($quantity <= $minLevel) return 'Low Stock';
-        if ($quantity > $maxLevel) return 'Overstock';
-        return 'Good Stock';
+        if ($item->quantity_available <= 0) {
+            return 'error';
+        } elseif ($item->product->min_stock_level && $item->quantity_available <= $item->product->min_stock_level) {
+            return 'warning';
+        } else {
+            return 'success';
+        }
     }
 }

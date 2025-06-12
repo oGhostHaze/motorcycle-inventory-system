@@ -105,7 +105,8 @@
                     <div class="flex gap-2">
                         <x-mary-button label="Adjust" wire:click="openAdjustmentModal({{ $item->id }})"
                             class="flex-1 btn-outline btn-xs" />
-                        <x-mary-button icon="o-eye" link="#" class="btn-ghost btn-xs" tooltip="View Details" />
+                        <x-mary-button icon="o-eye" wire:click="viewDetails({{ $item->id }})"
+                            class="btn-ghost btn-xs" tooltip="View Details" />
                     </div>
                 </x-mary-card>
             @empty
@@ -165,8 +166,8 @@
                                         <x-mary-button icon="o-adjustments-horizontal"
                                             wire:click="openAdjustmentModal({{ $item->id }})"
                                             class="btn-ghost btn-xs" tooltip="Adjust Stock" />
-                                        <x-mary-button icon="o-eye" link="#" class="btn-ghost btn-xs"
-                                            tooltip="View Details" />
+                                        <x-mary-button icon="o-eye" wire:click="viewDetails({{ $item->id }})"
+                                            class="btn-ghost btn-xs" tooltip="View Details" />
                                     </div>
                                 </td>
                             </tr>
@@ -244,4 +245,280 @@
             </x-slot:actions>
         @endif
     </x-mary-modal>
+
+    {{-- Product Details Modal --}}
+    <x-mary-modal wire:model="showDetailsModal" title="Product Details" subtitle="{{ $selectedProduct?->name }}"
+        box-class="w-11/12 max-w-4xl">
+        @if ($selectedProduct && $selectedInventory)
+            <div class="space-y-6">
+                {{-- Basic Information --}}
+                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-semibold">Basic Information</h4>
+                        <div class="space-y-2">
+                            <div><strong>Name:</strong> {{ $selectedProduct->name }}</div>
+                            <div><strong>SKU:</strong> {{ $selectedProduct->sku }}</div>
+                            @if ($selectedProduct->barcode)
+                                <div><strong>Barcode:</strong> {{ $selectedProduct->barcode }}</div>
+                            @endif
+                            <div><strong>Category:</strong> {{ $selectedProduct->category?->name ?? 'No category' }}
+                            </div>
+                            @if ($selectedProduct->subcategory)
+                                <div><strong>Subcategory:</strong> {{ $selectedProduct->subcategory->name }}</div>
+                            @endif
+                            @if ($selectedProduct->brand)
+                                <div><strong>Brand:</strong> {{ $selectedProduct->brand->name }}</div>
+                            @endif
+                            @if ($selectedProduct->part_number)
+                                <div><strong>Part Number:</strong> {{ $selectedProduct->part_number }}</div>
+                            @endif
+                            @if ($selectedProduct->oem_number)
+                                <div><strong>OEM Number:</strong> {{ $selectedProduct->oem_number }}</div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-semibold">Pricing & Stock</h4>
+                        <div class="space-y-2">
+                            <div><strong>Cost Price:</strong> ₱{{ number_format($selectedProduct->cost_price, 2) }}
+                            </div>
+                            <div><strong>Selling Price:</strong>
+                                ₱{{ number_format($selectedProduct->selling_price, 2) }}</div>
+                            @if ($selectedProduct->wholesale_price)
+                                <div><strong>Wholesale Price:</strong>
+                                    ₱{{ number_format($selectedProduct->wholesale_price, 2) }}</div>
+                            @endif
+                            <div><strong>Min Stock Level:</strong>
+                                {{ number_format($selectedProduct->min_stock_level ?? 0) }}</div>
+                            @if ($selectedProduct->max_stock_level)
+                                <div><strong>Max Stock Level:</strong>
+                                    {{ number_format($selectedProduct->max_stock_level) }}</div>
+                            @endif
+                            @if ($selectedProduct->reorder_point)
+                                <div><strong>Reorder Point:</strong>
+                                    {{ number_format($selectedProduct->reorder_point) }}</div>
+                            @endif
+                            @if ($selectedProduct->reorder_quantity)
+                                <div><strong>Reorder Quantity:</strong>
+                                    {{ number_format($selectedProduct->reorder_quantity) }}</div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Current Warehouse Stock Info --}}
+                <div>
+                    <h4 class="mb-3 text-lg font-semibold">Current Stock ({{ $selectedInventory->warehouse->name }})
+                    </h4>
+                    <div class="grid grid-cols-2 gap-4 p-4 rounded-lg md:grid-cols-4 bg-base-200">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-info">
+                                {{ number_format($selectedInventory->quantity_on_hand) }}</div>
+                            <div class="text-sm text-gray-600">On Hand</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-warning">
+                                {{ number_format($selectedInventory->quantity_reserved) }}</div>
+                            <div class="text-sm text-gray-600">Reserved</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-success">
+                                {{ number_format($selectedInventory->quantity_available) }}</div>
+                            <div class="text-sm text-gray-600">Available</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold">
+                                ₱{{ number_format($selectedInventory->quantity_on_hand * $selectedProduct->cost_price, 2) }}
+                            </div>
+                            <div class="text-sm text-gray-600">Total Value</div>
+                        </div>
+                    </div>
+                    @if ($selectedInventory->location)
+                        <div class="mt-2 text-sm text-gray-600">
+                            <x-heroicon-o-map-pin class="inline w-4 h-4" /> Location:
+                            {{ $selectedInventory->location }}
+                        </div>
+                    @endif
+                </div>
+
+                {{-- All Warehouse Stock Levels --}}
+                @if ($selectedProduct->inventory->count() > 1)
+                    <div>
+                        <h4 class="mb-3 text-lg font-semibold">Stock by All Warehouses</h4>
+                        <div class="overflow-x-auto">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Warehouse</th>
+                                        <th>On Hand</th>
+                                        <th>Reserved</th>
+                                        <th>Available</th>
+                                        <th>Location</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($selectedProduct->inventory as $inventory)
+                                        <tr
+                                            class="{{ $inventory->id === $selectedInventory->id ? 'bg-base-200' : '' }}">
+                                            <td>
+                                                {{ $inventory->warehouse->name }}
+                                                @if ($inventory->id === $selectedInventory->id)
+                                                    <x-mary-badge value="Current" class="badge-info badge-xs" />
+                                                @endif
+                                            </td>
+                                            <td class="font-semibold">
+                                                {{ number_format($inventory->quantity_on_hand) }}</td>
+                                            <td class="text-warning">
+                                                {{ number_format($inventory->quantity_reserved) }}</td>
+                                            <td class="font-semibold text-success">
+                                                {{ number_format($inventory->quantity_available) }}</td>
+                                            <td>{{ $inventory->location ?? '-' }}</td>
+                                            <td>₱{{ number_format($inventory->quantity_on_hand * $selectedProduct->cost_price, 2) }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Recent Stock Movements --}}
+                @if ($selectedProduct->stockMovements->count() > 0)
+                    <div>
+                        <h4 class="mb-3 text-lg font-semibold">Recent Stock Movements</h4>
+                        <div class="overflow-x-auto">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Quantity</th>
+                                        <th>Previous</th>
+                                        <th>New</th>
+                                        <th>Reason</th>
+                                        <th>User</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($selectedProduct->stockMovements as $movement)
+                                        <tr>
+                                            <td>{{ $movement->created_at->format('M d, Y H:i') }}</td>
+                                            <td>
+                                                <x-mary-badge
+                                                    value="{{ ucwords(str_replace('_', ' ', $movement->type)) }}"
+                                                    class="badge-{{ in_array($movement->type, ['adjustment', 'purchase']) && $movement->quantity_changed > 0 ? 'success' : 'warning' }} badge-xs" />
+                                            </td>
+                                            <td
+                                                class="font-semibold {{ $movement->quantity_changed > 0 ? 'text-success' : 'text-warning' }}">
+                                                {{ $movement->quantity_changed > 0 ? '+' : '' }}{{ number_format($movement->quantity_changed) }}
+                                            </td>
+                                            <td>{{ number_format($movement->quantity_before) }}</td>
+                                            <td>{{ number_format($movement->quantity_after) }}</td>
+                                            <td>{{ $movement->notes ?? '-' }}</td>
+                                            <td>{{ $movement->user->name ?? 'System' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Product Specifications --}}
+                @if (
+                    $selectedProduct->description ||
+                        $selectedProduct->weight ||
+                        $selectedProduct->color ||
+                        $selectedProduct->size ||
+                        $selectedProduct->material)
+                    <div>
+                        <h4 class="mb-3 text-lg font-semibold">Product Specifications</h4>
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            @if ($selectedProduct->description)
+                                <div>
+                                    <strong>Description:</strong>
+                                    <p class="mt-1 text-sm text-gray-600">{{ $selectedProduct->description }}</p>
+                                </div>
+                            @endif
+
+                            <div class="space-y-2">
+                                @if ($selectedProduct->weight)
+                                    <div><strong>Weight:</strong> {{ $selectedProduct->weight }} kg</div>
+                                @endif
+                                @if ($selectedProduct->color)
+                                    <div><strong>Color:</strong> {{ $selectedProduct->color }}</div>
+                                @endif
+                                @if ($selectedProduct->size)
+                                    <div><strong>Size:</strong> {{ $selectedProduct->size }}</div>
+                                @endif
+                                @if ($selectedProduct->material)
+                                    <div><strong>Material:</strong> {{ $selectedProduct->material }}</div>
+                                @endif
+                                @if ($selectedProduct->warranty_months)
+                                    <div><strong>Warranty:</strong> {{ $selectedProduct->warranty_months }} months
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Status & Tracking --}}
+                <div>
+                    <h4 class="mb-3 text-lg font-semibold">Status & Settings</h4>
+                    <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+                        <div>
+                            <strong>Status:</strong>
+                            <x-mary-badge value="{{ ucfirst($selectedProduct->status) }}"
+                                class="badge-{{ $selectedProduct->status === 'active' ? 'success' : ($selectedProduct->status === 'inactive' ? 'warning' : 'error') }} badge-sm" />
+                        </div>
+                        <div>
+                            <strong>Serial Tracking:</strong>
+                            <x-mary-badge value="{{ $selectedProduct->track_serial ? 'Yes' : 'No' }}"
+                                class="badge-{{ $selectedProduct->track_serial ? 'success' : 'ghost' }} badge-sm" />
+                        </div>
+                        <div>
+                            <strong>Warranty Tracking:</strong>
+                            <x-mary-badge value="{{ $selectedProduct->track_warranty ? 'Yes' : 'No' }}"
+                                class="badge-{{ $selectedProduct->track_warranty ? 'success' : 'ghost' }} badge-sm" />
+                        </div>
+                        <div>
+                            <strong>Created:</strong>
+                            <span class="text-sm">{{ $selectedProduct->created_at->format('M d, Y') }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Internal Notes --}}
+                @if ($selectedProduct->internal_notes)
+                    <div>
+                        <h4 class="mb-3 text-lg font-semibold">Internal Notes</h4>
+                        <div class="p-3 rounded-lg bg-base-200">
+                            <p class="text-sm">{{ $selectedProduct->internal_notes }}</p>
+                        </div>
+                    </div>
+                @endif
+            </div>
+
+            <x-slot:actions>
+                <x-mary-button label="Close" wire:click="$set('showDetailsModal', false)" />
+                <x-mary-button label="Adjust Stock" wire:click="openAdjustmentFromDetails" class="btn-primary" />
+            </x-slot:actions>
+        @endif
+    </x-mary-modal>
+
+    {{-- JavaScript for handling modal transitions --}}
+    <script>
+        document.addEventListener('livewire:init', () => {
+            Livewire.on('open-adjustment-modal', () => {
+                // Small delay to ensure the details modal is fully closed
+                setTimeout(() => {
+                    @this.set('showAdjustmentModal', true);
+                }, 150);
+            });
+        });
+    </script>
 </div>
