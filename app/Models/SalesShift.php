@@ -70,14 +70,14 @@ class SalesShift extends Model
 
     public function calculateTotals()
     {
-        $sales = $this->sales()->where('status', 'completed');
+        $baseQuery = $this->sales()->where('status', 'completed');
 
         $this->update([
-            'total_transactions' => $sales->count(),
-            'total_sales' => $sales->sum('total_amount'),
-            'cash_sales' => $sales->where('payment_method', 'cash')->sum('total_amount'),
-            'card_sales' => $sales->where('payment_method', 'card')->sum('total_amount'),
-            'other_sales' => $sales->whereNotIn('payment_method', ['cash', 'card'])->sum('total_amount'),
+            'total_transactions' => $baseQuery->count(),
+            'total_sales' => $baseQuery->sum('total_amount'),
+            'cash_sales' => (clone $baseQuery)->where('payment_method', 'cash')->sum('total_amount'),
+            'card_sales' => (clone $baseQuery)->where('payment_method', 'card')->sum('total_amount'),
+            'other_sales' => (clone $baseQuery)->whereNotIn('payment_method', ['cash', 'card'])->sum('total_amount'),
         ]);
 
         // Calculate expected cash
