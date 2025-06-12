@@ -68,8 +68,8 @@
 
     {{-- Shifts Table --}}
     <x-mary-card>
-        <div class="overflow-x-auto">
-            <table class="table table-zebra">
+        <div class="min-h-screen overflow-x-auto">
+            <table class="table h-full table-zebra">
                 <thead>
                     <tr>
                         <th>Shift #</th>

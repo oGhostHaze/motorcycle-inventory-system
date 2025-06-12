@@ -39,8 +39,8 @@
 
     {{-- Customers Table --}}
     <x-mary-card>
-        <div class="overflow-x-auto">
-            <table class="table table-zebra">
+        <div class="min-h-screen overflow-x-auto">
+            <table class="table h-full table-zebra">
                 <thead>
                     <tr>
                         <th>Customer</th>
@@ -60,7 +60,7 @@
                                 <div class="flex items-center gap-3">
                                     <div class="avatar placeholder">
                                         <div
-                                            class="w-8 h-8 text-center uppercase pt-2 text-xs rounded-full bg-neutral text-neutral-content">
+                                            class="w-8 h-8 pt-2 text-xs text-center uppercase rounded-full bg-neutral text-neutral-content">
                                             <span>{{ substr($customer->name, 0, 2) }}</span>
                                         </div>
                                     </div>

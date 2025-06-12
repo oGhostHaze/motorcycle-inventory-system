@@ -240,8 +240,8 @@
                 <div>
                     <h4 class="mb-4 font-semibold">Current Products ({{ count($supplierProducts) }})</h4>
                     @if (count($supplierProducts) > 0)
-                        <div class="overflow-x-auto">
-                            <table class="table table-zebra table-sm">
+                        <div class="min-h-screen overflow-x-auto">
+                            <table class="table h-full table-zebra table-sm">
                                 <thead>
                                     <tr>
                                         <th>Product</th>
