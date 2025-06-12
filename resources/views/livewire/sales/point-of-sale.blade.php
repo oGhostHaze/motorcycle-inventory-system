@@ -351,7 +351,7 @@
 
     {{-- Barcode Scanner Modal --}}
     <x-mary-modal wire:model="showBarcodeModal" title="Barcode Scanner"
-        subtitle="Scan multiple items then add to cart">
+        subtitle="Scan multiple items then add to cart" box-class="w-11/12 max-w-4xl">
         <div class="space-y-4">
             {{-- Barcode Input --}}
             <div class="p-4 rounded-lg bg-primary/10">
@@ -410,12 +410,6 @@
                             <span>₱{{ number_format(collect($scannedItems)->sum('subtotal'), 2) }}</span>
                         </div>
                     </div>
-
-                    <div class="flex gap-2 mt-4">
-                        <x-mary-button label="Clear All" wire:click="clearScannedItems" class="btn-ghost btn-sm" />
-                        <x-mary-button label="Add to Cart" wire:click="addScannedItemsToCart"
-                            class="flex-1 btn-primary" />
-                    </div>
                 </div>
             @else
                 <div class="py-8 text-center">
@@ -458,7 +452,7 @@
 
         <x-slot:actions>
             <x-mary-button label="Cancel" wire:click="$set('showBarcodeModal', false)" class="btn-ghost" />
-            <x-mary-button label="Clear Input" wire:click="clearBarcodeInput" class="btn-outline" />
+            <x-mary-button label="Clear All" wire:click="clearScannedItems" class="btn-outline" />
             <x-mary-button label="Add to Cart ({{ count($scannedItems) }})" wire:click="addScannedItemsToCart"
                 class="btn-primary" :disabled="count($scannedItems) === 0" />
         </x-slot:actions>

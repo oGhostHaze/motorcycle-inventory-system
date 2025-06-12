@@ -267,7 +267,7 @@ return new class extends Migration
             $table->foreignId('supplier_id')->constrained()->onDelete('restrict');
             $table->foreignId('warehouse_id')->constrained()->onDelete('restrict');
             $table->foreignId('requested_by')->constrained('users')->onDelete('restrict');
-            $table->enum('status', ['draft', 'sent', 'confirmed', 'partial', 'completed', 'cancelled'])->default('draft');
+            $table->enum('status', ['draft', 'sent', 'pending', 'partial', 'completed', 'cancelled'])->default('draft');
             $table->decimal('total_amount', 10, 2)->default(0);
             $table->date('order_date');
             $table->date('expected_date')->nullable();

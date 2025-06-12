@@ -127,7 +127,9 @@
 
     {{-- Create/Edit Modal --}}
     <x-mary-modal wire:model="showModal" title="{{ $editMode ? 'Edit Product' : 'Create New Product' }}"
-        subtitle="Manage product information and inventory">
+        subtitle="Manage product information and inventory" box-class="max-w-7xl">
+
+        {{-- Modal Header --}}
 
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
             {{-- Basic Information --}}
@@ -140,7 +142,7 @@
                     <div>
                         <x-mary-input label="SKU" wire:model="sku" placeholder="Product SKU">
                             <x-slot:append>
-                                <x-mary-button icon="o-sparkles" wire:click="generateSku" class="btn-outline btn-sm"
+                                <x-mary-button icon="o-sparkles" wire:click="generateSku" class="btn-outline"
                                     tooltip="Generate SKU" />
                             </x-slot:append>
                         </x-mary-input>
@@ -148,7 +150,7 @@
                     <div>
                         <x-mary-input label="Barcode" wire:model="barcode" placeholder="Product barcode">
                             <x-slot:append>
-                                <x-mary-button icon="o-qr-code" wire:click="generateBarcode" class="btn-outline btn-sm"
+                                <x-mary-button icon="o-qr-code" wire:click="generateBarcode" class="btn-outline"
                                     tooltip="Generate Barcode" />
                             </x-slot:append>
                         </x-mary-input>
@@ -159,16 +161,16 @@
                     rows="3" />
 
                 <div class="grid grid-cols-2 gap-3">
-                    <x-mary-select label="Category" :options="$categories->map(fn($cat) => ['value' => $cat->id, 'label' => $cat->name])" wire:model.live="category_id"
+                    <x-mary-select label="Category" :options="$categories" wire:model.live="category_id"
                         placeholder="Select category" />
 
                     @if ($subcategories->count() > 0)
-                        <x-mary-select label="Subcategory" :options="$subcategories->map(fn($sub) => ['value' => $sub->id, 'label' => $sub->name])" wire:model="subcategory_id"
+                        <x-mary-select label="Subcategory" :options="$subcategories" wire:model="subcategory_id"
                             placeholder="Select subcategory" />
                     @endif
                 </div>
 
-                <x-mary-select label="Brand" :options="$brands->map(fn($brand) => ['value' => $brand->id, 'label' => $brand->name])" wire:model="product_brand_id"
+                <x-mary-select label="Brand" :options="$brands" wire:model="product_brand_id"
                     placeholder="Select brand" />
             </div>
 
@@ -245,9 +247,9 @@
         <div class="grid grid-cols-2 gap-6 mt-6">
             <div>
                 <x-mary-select label="Status" :options="[
-                    ['value' => 'active', 'label' => 'Active'],
-                    ['value' => 'inactive', 'label' => 'Inactive'],
-                    ['value' => 'discontinued', 'label' => 'Discontinued'],
+                    ['id' => 'active', 'name' => 'Active'],
+                    ['id' => 'inactive', 'name' => 'Inactive'],
+                    ['id' => 'discontinued', 'name' => 'Discontinued'],
                 ]" wire:model="status" />
             </div>
             <div>
