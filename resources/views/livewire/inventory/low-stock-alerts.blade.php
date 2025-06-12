@@ -9,7 +9,7 @@
             <x-mary-button icon="o-arrow-path" wire:click="refreshAlerts" class="btn-ghost" tooltip="Refresh Alerts" />
             @if (count($selectedAlerts) > 0)
                 <x-mary-button icon="o-check" wire:click="resolveMultiple" class="btn-success">
-                    Resolve Selected
+                    Acknowledge Selected
                 </x-mary-button>
                 <x-mary-button icon="o-document-plus" wire:click="openCreatePOModal" class="btn-primary">
                     Create PO
@@ -51,7 +51,8 @@
                     <tr>
                         <th>
                             <input type="checkbox" class="checkbox checkbox-sm"
-                                @change="$wire.selectedAlerts = $event.target.checked ? @js($alerts->pluck('id')->toArray()) : []">
+                                @change="$wire.selectedAlerts = $event.target.checked ?
+                                @js($alerts->pluck('id')->toArray()) : []">
                         </th>
                         <th>Product</th>
                         <th>Warehouse</th>
@@ -59,47 +60,52 @@
                         <th>Min Level</th>
                         <th>Shortage</th>
                         <th>Severity</th>
-                        <th>Alert Date</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($alerts as $alert)
-                        <tr class="{{ $alert->current_stock == 0 ? 'bg-error/10' : '' }}">
+                        <tr class="{{ $alert->quantity_on_hand == 0 ? 'bg-error/10' : '' }}">
                             <td>
                                 <input type="checkbox" class="checkbox checkbox-sm" value="{{ $alert->id }}"
                                     wire:model="selectedAlerts">
                             </td>
                             <td>
                                 <div>
-                                    <div class="font-medium">{{ $alert->product->name }}</div>
-                                    <div class="text-sm text-gray-500">{{ $alert->product->sku }}</div>
-                                    @if ($alert->product->category)
-                                        <div class="text-xs text-gray-400">{{ $alert->product->category->name }}</div>
+                                    <div class="font-medium">{{ $alert->product_name }}</div>
+                                    <div class="text-sm text-gray-500">{{ $alert->sku }}</div>
+                                    @if ($alert->category_name)
+                                        <div class="text-xs text-gray-400">{{ $alert->category_name }}</div>
                                     @endif
                                 </div>
                             </td>
                             <td>
-                                <span class="text-sm">{{ $alert->warehouse->name }}</span>
+                                <span class="text-sm">{{ $alert->warehouse_name }}</span>
                             </td>
                             <td>
                                 <div class="text-center">
                                     <span
-                                        class="font-bold text-lg {{ $alert->current_stock == 0 ? 'text-error' : 'text-warning' }}">
-                                        {{ number_format($alert->current_stock) }}
+                                        class="font-bold text-lg {{ $alert->quantity_on_hand == 0 ? 'text-error' : ($alert->quantity_on_hand <= $alert->min_stock_level * 0.5 ? 'text-warning' : 'text-info') }}">
+                                        {{ number_format($alert->quantity_on_hand) }}
                                     </span>
+                                    <div class="text-xs text-gray-500">units</div>
                                 </div>
                             </td>
                             <td>
                                 <div class="text-center">
                                     <span class="font-medium">{{ number_format($alert->min_stock_level) }}</span>
+                                    <div class="text-xs text-gray-500">minimum</div>
                                 </div>
                             </td>
                             <td>
                                 <div class="text-center">
-                                    <span class="font-bold text-error">
-                                        {{ number_format($alert->min_stock_level - $alert->current_stock) }}
+                                    @php
+                                        $shortage = max(0, $alert->min_stock_level - $alert->quantity_on_hand);
+                                    @endphp
+                                    <span class="font-medium text-error">
+                                        {{ number_format($shortage) }}
                                     </span>
+                                    <div class="text-xs text-gray-500">needed</div>
                                 </div>
                             </td>
                             <td>
@@ -107,26 +113,24 @@
                                     class="badge-{{ $this->getSeverityClass($alert) }}" />
                             </td>
                             <td>
-                                <div class="text-sm">
-                                    <div>{{ $alert->created_at->format('M d, Y') }}</div>
-                                    <div class="text-gray-500">{{ $alert->created_at->diffForHumans() }}</div>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="flex gap-1">
+                                <div class="flex gap-2">
                                     <x-mary-button icon="o-check" wire:click="resolveAlert({{ $alert->id }})"
-                                        class="btn-ghost btn-xs text-success" tooltip="Resolve Alert" />
-                                    <x-mary-button icon="o-eye" class="btn-ghost btn-xs" tooltip="View Details" />
+                                        class="btn-ghost btn-sm" tooltip="Acknowledge Alert" />
+                                    <x-mary-button icon="o-eye"
+                                        onclick="window.open('/inventory/stock-levels?search={{ $alert->sku }}', '_blank')"
+                                        class="btn-ghost btn-sm" tooltip="View Details" />
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="text-center">
-                                <div class="py-8">
-                                    <x-heroicon-o-check-circle class="w-12 h-12 mx-auto text-green-400" />
-                                    <p class="mt-2 text-gray-500">No low stock alerts</p>
-                                    <p class="text-sm text-gray-400">All products are adequately stocked!</p>
+                            <td colspan="8" class="py-8 text-center">
+                                <div class="flex flex-col items-center justify-center space-y-3">
+                                    <x-mary-icon name="o-check-circle" class="w-16 h-16 text-success" />
+                                    <div>
+                                        <h3 class="text-lg font-medium text-gray-900">No low stock alerts</h3>
+                                        <p class="text-sm text-gray-500">All products are adequately stocked!</p>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -136,32 +140,21 @@
         </div>
 
         {{-- Pagination --}}
-        <div class="mt-4">
-            {{ $alerts->links() }}
-        </div>
+        @if ($alerts->hasPages())
+            <div class="mt-4">
+                {{ $alerts->links() }}
+            </div>
+        @endif
     </x-mary-card>
 
     {{-- Create Purchase Order Modal --}}
     <x-mary-modal wire:model="showCreatePOModal" title="Create Purchase Order"
-        subtitle="Generate PO for selected low stock items">
-
+        subtitle="Generate PO for selected items">
         <div class="space-y-4">
-            <div class="p-4 rounded-lg bg-info/10">
-                <h4 class="font-semibold">Selected Items: {{ count($selectedAlerts) }}</h4>
-                <p class="text-sm text-gray-600">A purchase order will be created for the selected low stock items.</p>
-            </div>
+            <x-mary-select label="Supplier" wire:model="selectedSupplier" :options="[]"
+                placeholder="Select supplier..." required />
 
-            <x-mary-select label="Supplier" :options="[]" wire:model="selectedSupplier"
-                placeholder="Select supplier" />
-
-            <x-mary-input label="Expected Delivery Date" wire:model="expectedDate" type="date" />
-
-            <div class="p-3 rounded-lg bg-warning/10">
-                <p class="text-sm text-warning-700">
-                    <x-heroicon-o-information-circle class="inline w-4 h-4 mr-1" />
-                    This will create a draft purchase order that you can review and modify before submitting.
-                </p>
-            </div>
+            <x-mary-input label="Expected Delivery Date" wire:model="expectedDate" type="date" required />
         </div>
 
         <x-slot:actions>

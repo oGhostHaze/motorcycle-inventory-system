@@ -84,6 +84,26 @@ class Product extends Model
         return $this->hasMany(Inventory::class);
     }
 
+    // FIXED: Added missing saleItems relationship
+    public function saleItems()
+    {
+        return $this->hasMany(SaleItem::class);
+    }
+
+    // ADDED: Helper relationship for completed sales only
+    public function completedSaleItems()
+    {
+        return $this->hasMany(SaleItem::class)->whereHas('sale', function ($query) {
+            $query->where('status', 'completed');
+        });
+    }
+
+    // ADDED: Get sales through sale items
+    public function sales()
+    {
+        return $this->hasManyThrough(Sale::class, SaleItem::class, 'product_id', 'id', 'id', 'sale_id');
+    }
+
     public function compatibleModels()
     {
         return $this->belongsToMany(MotorcycleModel::class, 'product_compatibility')
@@ -141,6 +161,18 @@ class Product extends Model
         return $this->reviews()->where('is_approved', true)->count();
     }
 
+    // ADDED: Get total sold quantity
+    public function getTotalSoldAttribute()
+    {
+        return $this->completedSaleItems()->sum('quantity');
+    }
+
+    // ADDED: Get total revenue generated
+    public function getTotalRevenueAttribute()
+    {
+        return $this->completedSaleItems()->sum('total_price');
+    }
+
     public function isLowStock()
     {
         return $this->total_stock <= $this->min_stock_level;
@@ -171,7 +203,10 @@ class Product extends Model
                 $oldValues = $model->getOriginal();
                 $newValues = $model->getAttributes();
 
-                PriceHistory::logPriceChange($model, $oldValues, $newValues);
+                // Only log if PriceHistory model exists
+                if (class_exists(\App\Models\PriceHistory::class)) {
+                    \App\Models\PriceHistory::logPriceChange($model, $oldValues, $newValues);
+                }
             }
         });
     }

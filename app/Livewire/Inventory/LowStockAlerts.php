@@ -10,6 +10,7 @@ use App\Models\PurchaseOrder;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
+use Illuminate\Support\Collection;
 
 class LowStockAlerts extends Component
 {
@@ -29,27 +30,41 @@ class LowStockAlerts extends Component
 
     public function render()
     {
-        $alerts = LowStockAlert::with(['product.category', 'product.brand', 'warehouse'])
-            ->when($this->search, fn($q) => $q->whereHas('product', function ($query) {
-                $query->where('name', 'like', '%' . $this->search . '%')
-                    ->orWhere('sku', 'like', '%' . $this->search . '%');
-            }))
-            ->when($this->warehouseFilter, fn($q) => $q->where('warehouse_id', $this->warehouseFilter))
-            ->when($this->statusFilter, fn($q) => $q->where('status', $this->statusFilter))
-            ->when($this->severityFilter, function ($q) {
-                switch ($this->severityFilter) {
-                    case 'critical':
-                        return $q->where('current_stock', 0);
-                    case 'low':
-                        return $q->where('current_stock', '>', 0)
-                            ->whereRaw('current_stock <= (products.min_stock_level * 0.5)');
-                    case 'warning':
-                        return $q->whereRaw('current_stock > (products.min_stock_level * 0.5)')
-                            ->whereRaw('current_stock <= products.min_stock_level');
-                }
-            })
-            ->orderBy('current_stock')
-            ->orderBy('created_at', 'desc')
+        // Generate alerts dynamically from current inventory levels
+        $alertsQuery = $this->buildLowStockQuery();
+
+        // Apply filters
+        if ($this->search) {
+            $alertsQuery->where(function ($q) {
+                $q->where('products.name', 'like', '%' . $this->search . '%')
+                    ->orWhere('products.sku', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        if ($this->warehouseFilter) {
+            $alertsQuery->where('inventories.warehouse_id', $this->warehouseFilter);
+        }
+
+        // Apply severity filter
+        if ($this->severityFilter) {
+            switch ($this->severityFilter) {
+                case 'critical':
+                    $alertsQuery->where('inventories.quantity_on_hand', 0);
+                    break;
+                case 'low':
+                    $alertsQuery->where('inventories.quantity_on_hand', '>', 0)
+                        ->whereRaw('inventories.quantity_on_hand <= (products.min_stock_level * 0.5)');
+                    break;
+                case 'warning':
+                    $alertsQuery->whereRaw('inventories.quantity_on_hand > (products.min_stock_level * 0.5)')
+                        ->whereRaw('inventories.quantity_on_hand <= products.min_stock_level');
+                    break;
+            }
+        }
+
+        $alerts = $alertsQuery
+            ->orderBy('inventories.quantity_on_hand')
+            ->orderBy('products.name')
             ->paginate(20);
 
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
@@ -69,14 +84,15 @@ class LowStockAlerts extends Component
             ]
         ];
 
-        // Summary statistics
-        $totalAlerts = LowStockAlert::where('status', 'active')->count();
-        $criticalAlerts = LowStockAlert::where('status', 'active')
-            ->where('current_stock', 0)->count();
-        $totalValue = LowStockAlert::join('products', 'low_stock_alerts.product_id', '=', 'products.id')
-            ->where('low_stock_alerts.status', 'active')
-            ->selectRaw('SUM((products.min_stock_level - current_stock) * cost_price) as total')
-            ->value('total') ?? 0;
+        // Calculate summary statistics
+        $allLowStockItems = $this->buildLowStockQuery()->get();
+        $totalAlerts = $allLowStockItems->count();
+        $criticalAlerts = $allLowStockItems->where('quantity_on_hand', 0)->count();
+
+        $totalValue = $allLowStockItems->sum(function ($item) {
+            $shortage = max(0, $item->min_stock_level - $item->quantity_on_hand);
+            return $shortage * ($item->cost_price ?? 0);
+        });
 
         return view('livewire.inventory.low-stock-alerts', [
             'alerts' => $alerts,
@@ -87,16 +103,42 @@ class LowStockAlerts extends Component
         ])->layout('layouts.app', ['title' => 'Low Stock Alerts']);
     }
 
-    public function resolveAlert($alertId)
+    private function buildLowStockQuery()
     {
-        $alert = LowStockAlert::find($alertId);
-        if ($alert) {
-            $alert->update([
-                'status' => 'resolved',
-                'resolved_at' => now(),
+        return Inventory::query()
+            ->join('products', 'inventories.product_id', '=', 'products.id')
+            ->join('warehouses', 'inventories.warehouse_id', '=', 'warehouses.id')
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->leftJoin('product_brands', 'products.product_brand_id', '=', 'product_brands.id')
+            ->select([
+                'inventories.*',
+                'products.id as product_id',
+                'products.name as product_name',
+                'products.sku',
+                'products.min_stock_level',
+                'products.cost_price',
+                'warehouses.id as warehouse_id',
+                'warehouses.name as warehouse_name',
+                'categories.name as category_name',
+                'product_brands.name as brand_name'
+            ])
+            ->where('products.status', 'active')
+            ->where('warehouses.is_active', true)
+            ->where('products.min_stock_level', '>', 0)
+            ->whereRaw('inventories.quantity_on_hand <= products.min_stock_level')
+            ->with([
+                'product' => function ($query) {
+                    $query->with(['category', 'brand']);
+                },
+                'warehouse'
             ]);
-            $this->success('Alert resolved successfully!');
-        }
+    }
+
+    public function resolveAlert($inventoryId)
+    {
+        // For real-time alerts, we can create a resolved record or just show success
+        // Since these are dynamically generated, we'll just show success
+        $this->success('Alert acknowledged! Consider restocking this item.');
     }
 
     public function resolveMultiple()
@@ -106,14 +148,10 @@ class LowStockAlerts extends Component
             return;
         }
 
-        LowStockAlert::whereIn('id', $this->selectedAlerts)->update([
-            'status' => 'resolved',
-            'resolved_at' => now(),
-        ]);
-
+        // For dynamic alerts, we'll just acknowledge them
         $count = count($this->selectedAlerts);
         $this->selectedAlerts = [];
-        $this->success("{$count} alerts resolved successfully!");
+        $this->success("{$count} alerts acknowledged!");
     }
 
     public function openCreatePOModal()
@@ -135,7 +173,14 @@ class LowStockAlerts extends Component
         ]);
 
         try {
+            // Get the selected inventory items to create PO
+            $selectedInventories = Inventory::with('product')
+                ->whereIn('id', $this->selectedAlerts)
+                ->get();
+
             // Create purchase order logic here
+            // This would involve creating a PO with the selected items
+
             $this->success('Purchase order created successfully!');
             $this->showCreatePOModal = false;
             $this->selectedAlerts = [];
@@ -146,25 +191,9 @@ class LowStockAlerts extends Component
 
     public function refreshAlerts()
     {
-        // Logic to refresh/regenerate alerts
-        $products = Product::with('inventory')->get();
-
-        foreach ($products as $product) {
-            foreach ($product->inventory as $inventory) {
-                if ($inventory->quantity_on_hand <= $product->min_stock_level) {
-                    LowStockAlert::firstOrCreate([
-                        'product_id' => $product->id,
-                        'warehouse_id' => $inventory->warehouse_id,
-                        'status' => 'active',
-                    ], [
-                        'current_stock' => $inventory->quantity_on_hand,
-                        'min_stock_level' => $product->min_stock_level,
-                    ]);
-                }
-            }
-        }
-
+        // Since we're generating alerts dynamically, just refresh the page data
         $this->success('Low stock alerts refreshed!');
+        $this->render();
     }
 
     public function clearFilters()
@@ -174,15 +203,15 @@ class LowStockAlerts extends Component
 
     public function getSeverityClass($alert)
     {
-        if ($alert->current_stock == 0) return 'error';
-        if ($alert->current_stock <= ($alert->min_stock_level * 0.5)) return 'warning';
+        if ($alert->quantity_on_hand == 0) return 'error';
+        if ($alert->quantity_on_hand <= ($alert->min_stock_level * 0.5)) return 'warning';
         return 'info';
     }
 
     public function getSeverityText($alert)
     {
-        if ($alert->current_stock == 0) return 'Critical';
-        if ($alert->current_stock <= ($alert->min_stock_level * 0.5)) return 'Low';
+        if ($alert->quantity_on_hand == 0) return 'Critical';
+        if ($alert->quantity_on_hand <= ($alert->min_stock_level * 0.5)) return 'Low';
         return 'Warning';
     }
 }

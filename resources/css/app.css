@@ -38,3 +38,7 @@
 .badge {
   @apply whitespace-nowrap;
 }
+
+.avatar {
+    @apply text-center uppercase;
+}
