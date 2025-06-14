@@ -14,28 +14,28 @@ class ShiftManagement extends Component
     use WithPagination, Toast;
 
     // Shift start/end modals
-    public bool $showStartShiftModal = false;
-    public bool $showEndShiftModal = false;
-    public bool $showShiftDetailsModal = false;
+    public $showStartShiftModal = false;
+    public $showEndShiftModal = false;
+    public $showShiftDetailsModal = false;
 
     // Current shift data
-    public ?SalesShift $currentShift = null;
-    public ?SalesShift $selectedShift = null;
+    public $currentShift = null;
+    public $selectedShift = null;
 
     // Start shift form
     public $selectedWarehouse = '';
     public $openingCash = '';
-    public string $openingNotes = '';
+    public $openingNotes = '';
 
     // End shift form
     public $closingCash = '';
-    public string $closingNotes = '';
+    public $closingNotes = '';
 
     // Filters
-    public string $search = '';
-    public string $warehouseFilter = '';
-    public string $statusFilter = '';
-    public string $dateFilter = '';
+    public $search = '';
+    public $warehouseFilter = '';
+    public $statusFilter = '';
+    public $dateFilter = '';
 
     public function mount()
     {

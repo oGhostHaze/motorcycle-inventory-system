@@ -17,40 +17,40 @@ class WarehouseManagement extends Component
     use WithPagination;
     use Toast;
 
-    public bool $showModal = false;
-    public bool $editMode = false;
-    public ?Warehouse $selectedWarehouse = null;
+    public $showModal = false;
+    public $editMode = false;
+    public $selectedWarehouse = null;
 
     // View Inventory Modal
-    public bool $showInventoryModal = false;
-    public ?Warehouse $inventoryWarehouse = null;
+    public $showInventoryModal = false;
+    public $inventoryWarehouse = null;
     public $inventoryData = [];
 
     // Stock Transfer Modal
-    public bool $showTransferModal = false;
-    public ?Warehouse $transferFromWarehouse = null;
+    public $showTransferModal = false;
+    public $transferFromWarehouse = null;
     public $transferToWarehouse = '';
     public $transferProduct = '';
     public $transferQuantity = '';
-    public string $transferNotes = '';
+    public $transferNotes = '';
 
     // Form fields
-    public string $name = '';
-    public string $code = '';
-    public string $address = '';
-    public string $city = '';
-    public string $manager_name = '';
-    public string $phone = '';
-    public string $type = 'main';
-    public bool $is_active = true;
+    public $name = '';
+    public $code = '';
+    public $address = '';
+    public $city = '';
+    public $manager_name = '';
+    public $phone = '';
+    public $type = 'main';
+    public $is_active = true;
 
     // Search and filters
-    public string $search = '';
-    public string $typeFilter = '';
-    public string $statusFilter = '';
+    public $search = '';
+    public $typeFilter = '';
+    public $statusFilter = '';
 
     // Inventory search
-    public string $inventorySearch = '';
+    public $inventorySearch = '';
 
     protected array $rules = [
         'name' => 'required|string|max:255',

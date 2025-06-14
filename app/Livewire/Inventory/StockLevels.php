@@ -16,26 +16,26 @@ class StockLevels extends Component
     use WithPagination;
     use Toast;
 
-    public bool $showAdjustmentModal = false;
-    public bool $showDetailsModal = false; // Add this property
-    public ?Inventory $selectedInventory = null;
-    public ?Product $selectedProduct = null; // Add this property
+    public $showAdjustmentModal = false;
+    public $showDetailsModal = false; // Add this property
+    public $selectedInventory = null;
+    public $selectedProduct = null; // Add this property
 
     // Adjustment form fields
     public $adjustment_quantity = '';
-    public string $adjustment_type = 'in';
-    public string $adjustment_reason = '';
-    public string $adjustment_notes = '';
+    public $adjustment_type = 'in';
+    public $adjustment_reason = '';
+    public $adjustment_notes = '';
 
     // Search and filters
-    public string $search = '';
-    public string $warehouseFilter = '';
-    public string $categoryFilter = '';
-    public string $stockFilter = '';
-    public string $statusFilter = '';
+    public $search = '';
+    public $warehouseFilter = '';
+    public $categoryFilter = '';
+    public $stockFilter = '';
+    public $statusFilter = '';
 
     // View options
-    public string $viewMode = 'grid'; // grid or table
+    public $viewMode = 'grid'; // grid or table
 
     public function render()
     {

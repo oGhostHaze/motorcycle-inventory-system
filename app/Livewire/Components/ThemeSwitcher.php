@@ -6,8 +6,8 @@ use Livewire\Component;
 
 class ThemeSwitcher extends Component
 {
-    public string $currentTheme = 'light';
-    public bool $autoTheme = false;
+    public $currentTheme = 'light';
+    public $autoTheme = false;
 
     public array $themes = [
         'light' => [

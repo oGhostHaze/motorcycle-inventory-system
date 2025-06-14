@@ -14,29 +14,29 @@ class CategoryManagement extends Component
     use WithPagination;
     use Toast;
 
-    public bool $showModal = false;
-    public bool $showSubcategoryModal = false;
-    public bool $editMode = false;
-    public ?Category $selectedCategory = null;
-    public ?Subcategory $selectedSubcategory = null;
+    public $showModal = false;
+    public $showSubcategoryModal = false;
+    public $editMode = false;
+    public $selectedCategory = null;
+    public $selectedSubcategory = null;
 
     // Category form fields
-    public string $name = '';
-    public string $description = '';
-    public string $icon = '';
-    public $sort_order = '';
-    public bool $is_active = true;
+    public $name = '';
+    public $description = '';
+    public $icon = '';
+    public $sort_order = 0;
+    public $is_active = true;
 
     // Subcategory form fields
-    public string $subcategory_name = '';
-    public string $subcategory_description = '';
+    public $subcategory_name = '';
+    public $subcategory_description = '';
     public $subcategory_sort_order = '';
-    public bool $subcategory_is_active = true;
+    public $subcategory_is_active = true;
     public $category_id = '';
 
     // Search and filters
-    public string $search = '';
-    public string $statusFilter = '';
+    public $search = '';
+    public $statusFilter = '';
 
     protected array $rules = [
         'name' => 'required|string|max:255',

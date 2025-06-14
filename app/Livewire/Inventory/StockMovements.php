@@ -16,12 +16,12 @@ class StockMovements extends Component
     use Toast;
 
     // Search and filters
-    public string $search = '';
-    public string $productFilter = '';
-    public string $warehouseFilter = '';
-    public string $userFilter = '';
-    public string $typeFilter = '';
-    public string $dateFilter = '';
+    public $search = '';
+    public $productFilter = '';
+    public $warehouseFilter = '';
+    public $userFilter = '';
+    public $typeFilter = '';
+    public $dateFilter = '';
 
     public function render()
     {

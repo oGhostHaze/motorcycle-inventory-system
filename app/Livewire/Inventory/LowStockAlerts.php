@@ -17,16 +17,16 @@ class LowStockAlerts extends Component
     use WithPagination;
     use Toast;
 
-    public bool $showCreatePOModal = false;
-    public array $selectedAlerts = [];
+    public $showCreatePOModal = false;
+    public $selectedAlerts = [];
     public $selectedSupplier = '';
     public $expectedDate = '';
 
     // Search and filters
-    public string $search = '';
-    public string $warehouseFilter = '';
-    public string $statusFilter = 'active';
-    public string $severityFilter = '';
+    public $search = '';
+    public $warehouseFilter = '';
+    public $statusFilter = 'active';
+    public $severityFilter = '';
 
     public function render()
     {

@@ -13,30 +13,30 @@ class CustomerManagement extends Component
     use WithPagination;
     use Toast;
 
-    public bool $showModal = false;
-    public bool $editMode = false;
-    public ?Customer $selectedCustomer = null;
+    public $showModal = false;
+    public $editMode = false;
+    public $selectedCustomer = null;
 
     // Form fields
-    public string $name = '';
-    public string $email = '';
-    public string $phone = '';
-    public string $address = '';
-    public string $city = '';
-    public string $type = 'individual';
+    public $name = '';
+    public $email = '';
+    public $phone = '';
+    public $address = '';
+    public $city = '';
+    public $type = 'individual';
     public $customer_group_id = '';
-    public string $date_of_birth = '';
-    public string $gender = '';
-    public string $tax_id = '';
+    public $date_of_birth = '';
+    public $gender = '';
+    public $tax_id = '';
     public $credit_limit = '';
-    public string $notes = '';
-    public bool $is_active = true;
+    public $notes = '';
+    public $is_active = true;
 
     // Search and filters
-    public string $search = '';
-    public string $typeFilter = '';
-    public string $groupFilter = '';
-    public string $statusFilter = '';
+    public $search = '';
+    public $typeFilter = '';
+    public $groupFilter = '';
+    public $statusFilter = '';
 
     protected array $rules = [
         'name' => 'required|string|max:255',

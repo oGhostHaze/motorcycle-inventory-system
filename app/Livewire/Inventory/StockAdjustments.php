@@ -15,25 +15,25 @@ class StockAdjustments extends Component
     use WithPagination;
     use Toast;
 
-    public bool $showAdjustmentModal = false;
-    public bool $showBulkModal = false;
+    public $showAdjustmentModal = false;
+    public $showBulkModal = false;
 
     // Single adjustment form
     public $selectedProduct = '';
     public $selectedWarehouse = '';
     public $adjustmentType = 'in';
     public $quantity = '';
-    public string $reason = '';
-    public string $notes = '';
+    public $reason = '';
+    public $notes = '';
 
     // Bulk adjustment
     public array $bulkAdjustments = [];
 
     // Search and filters
-    public string $search = '';
-    public string $warehouseFilter = '';
-    public string $typeFilter = '';
-    public string $dateFilter = '';
+    public $search = '';
+    public $warehouseFilter = '';
+    public $typeFilter = '';
+    public $dateFilter = '';
 
     protected array $rules = [
         'selectedProduct' => 'required|exists:products,id',

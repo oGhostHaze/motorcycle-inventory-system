@@ -12,25 +12,25 @@ class UserManagement extends Component
     use WithPagination;
     use Toast;
 
-    public bool $showModal = false;
-    public bool $editMode = false;
-    public ?User $selectedUser = null;
+    public $showModal = false;
+    public $editMode = false;
+    public $selectedUser = null;
 
     // Form fields
-    public string $name = '';
-    public string $email = '';
-    public string $role = 'cashier';
-    public bool $is_active = true;
-    public array $permissions = [];
-    public string $password = '';
-    public string $password_confirmation = '';
+    public $name = '';
+    public $email = '';
+    public $role = 'cashier';
+    public $is_active = true;
+    public $permissions = [];
+    public $password = '';
+    public $password_confirmation = '';
 
     // Search and filters
-    public string $search = '';
-    public string $roleFilter = '';
-    public string $statusFilter = '';
+    public $search = '';
+    public $roleFilter = '';
+    public $statusFilter = '';
 
-    protected array $rules = [
+    protected $rules = [
         'name' => 'required|string|max:255',
         'email' => 'required|email|unique:users,email',
         'role' => 'required|in:admin,manager,cashier,warehouse_staff',

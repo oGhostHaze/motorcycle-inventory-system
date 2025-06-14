@@ -18,30 +18,30 @@ class PurchaseOrderManagement extends Component
     use WithPagination;
     use Toast;
 
-    public bool $showModal = false;
-    public bool $showReceiveModal = false;
-    public bool $editMode = false;
-    public ?PurchaseOrder $selectedPO = null;
+    public $showModal = false;
+    public $showReceiveModal = false;
+    public $editMode = false;
+    public $selectedPO = null;
 
     // Form fields
     public $supplier_id = '';
     public $warehouse_id = '';
-    public string $order_date = '';
-    public string $expected_date = '';
-    public string $notes = '';
-    public array $items = [];
+    public $order_date = '';
+    public $expected_date = '';
+    public $notes = '';
+    public $items = [];
 
     // Receiving fields
-    public array $receivingItems = [];
+    public $receivingItems = [];
 
     // Search and filters
-    public string $search = '';
-    public string $supplierFilter = '';
-    public string $warehouseFilter = '';
-    public string $statusFilter = '';
-    public string $dateFilter = '';
+    public $search = '';
+    public $supplierFilter = '';
+    public $warehouseFilter = '';
+    public $statusFilter = '';
+    public $dateFilter = '';
 
-    protected array $rules = [
+    protected $rules = [
         'supplier_id' => 'required|exists:suppliers,id',
         'warehouse_id' => 'required|exists:warehouses,id',
         'order_date' => 'required|date',

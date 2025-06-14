@@ -25,46 +25,46 @@ class ProductManagement extends Component
     public ?Product $selectedProduct = null;
 
     // Form fields
-    public string $name = '';
-    public string $sku = '';
-    public string $barcode = '';
-    public string $description = '';
-    public $category_id = '';
-    public $subcategory_id = '';
-    public $product_brand_id = '';
-    public string $part_number = '';
-    public string $oem_number = '';
-    public $cost_price = '';
-    public $selling_price = '';
-    public $wholesale_price = '';
-    public $weight = '';
-    public string $color = '';
-    public string $size = '';
-    public string $material = '';
-    public $warranty_months = '';
-    public bool $track_serial = false;
-    public bool $track_warranty = false;
-    public $min_stock_level = '';
-    public $max_stock_level = '';
-    public $reorder_point = '';
-    public $reorder_quantity = '';
-    public string $status = 'active';
-    public string $internal_notes = '';
+    public $name = '';
+    public $sku = '';
+    public $barcode = '';
+    public $description = '';
+    public $category_id = null;
+    public $subcategory_id = null;
+    public $product_brand_id = null;
+    public $part_number = '';
+    public $oem_number = '';
+    public $cost_price = 0.00;
+    public $selling_price = 0.00;
+    public $wholesale_price = null;
+    public $weight = null;
+    public $color = '';
+    public $size = '';
+    public $material = '';
+    public $warranty_months = 0;
+    public $track_serial = false;
+    public $track_warranty = false;
+    public $min_stock_level = 0;
+    public $max_stock_level = 0;
+    public $reorder_point = 0;
+    public $reorder_quantity = 0;
+    public $status = 'active';
+    public $internal_notes = '';
     public $productImage;
 
     // Search and filters
-    public string $search = '';
-    public string $categoryFilter = '';
-    public string $brandFilter = '';
-    public string $statusFilter = '';
-    public string $stockFilter = '';
+    public $search = '';
+    public $categoryFilter = '';
+    public $brandFilter = '';
+    public $statusFilter = '';
+    public $stockFilter = '';
 
-    public bool $showViewModal = false;
+    public $showViewModal = false;
 
     // Inventory fields for new products
-    public array $warehouseStock = [];
+    public $warehouseStock = [];
 
-    protected array $rules = [
+    protected $rules = [
         'name' => 'required|string|max:255',
         'sku' => 'required|string|max:100|unique:products,sku',
         'category_id' => 'required|exists:categories,id',

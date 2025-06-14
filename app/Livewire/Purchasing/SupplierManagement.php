@@ -14,41 +14,41 @@ class SupplierManagement extends Component
     use WithPagination;
     use Toast;
 
-    public bool $showModal = false;
-    public bool $showProductsModal = false;
-    public bool $editMode = false;
-    public ?Supplier $selectedSupplier = null;
+    public $showModal = false;
+    public $showProductsModal = false;
+    public $editMode = false;
+    public $selectedSupplier = null;
 
     // Form fields
-    public string $name = '';
-    public string $contact_person = '';
-    public string $email = '';
-    public string $phone = '';
-    public string $address = '';
-    public string $city = '';
-    public string $country = '';
+    public $name = '';
+    public $contact_person = '';
+    public $email = '';
+    public $phone = '';
+    public $address = '';
+    public $city = '';
+    public $country = '';
     public $rating = '';
     public $lead_time_days = '';
-    public string $notes = '';
-    public bool $is_active = true;
+    public $notes = '';
+    public $is_active = true;
 
     // Product association
-    public array $supplierProducts = [];
+    public $supplierProducts = [];
     public $selectedProduct = '';
-    public string $supplier_sku = '';
-    public string $supplier_part_number = '';
+    public $supplier_sku = '';
+    public $supplier_part_number = '';
     public $supplier_price = '';
     public $minimum_order_quantity = '';
     public $product_lead_time_days = '';
-    public bool $is_preferred = false;
+    public $is_preferred = false;
 
     // Search and filters
-    public string $search = '';
-    public string $countryFilter = '';
-    public string $statusFilter = '';
-    public string $ratingFilter = '';
+    public $search = '';
+    public $countryFilter = '';
+    public $statusFilter = '';
+    public $ratingFilter = '';
 
-    protected array $rules = [
+    protected $rules = [
         'name' => 'required|string|max:255',
         'contact_person' => 'nullable|string|max:255',
         'email' => 'nullable|email|max:255',

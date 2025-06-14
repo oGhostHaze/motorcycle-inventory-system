@@ -271,7 +271,8 @@
 
 
     {{-- View Product Details Modal --}}
-    <x-mary-modal wire:model="showViewModal" title="Product Details" subtitle="{{ $selectedProduct?->name }}">
+    <x-mary-modal wire:model="showViewModal" title="Product Details" subtitle="{{ $selectedProduct?->name }}"
+        box-class="max-w-7xl">
 
         @if ($selectedProduct)
             <div class="space-y-6">

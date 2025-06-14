@@ -15,21 +15,21 @@ class SalesHistory extends Component
     use WithPagination;
     use Toast;
 
-    public bool $showDetailsModal = false;
-    public ?Sale $selectedSale = null;
+    public $showDetailsModal = false;
+    public $selectedSale = null;
 
     // Search and filters
-    public string $search = '';
-    public string $customerFilter = '';
-    public string $warehouseFilter = '';
-    public string $userFilter = '';
-    public string $statusFilter = '';
-    public string $dateFilter = '';
-    public string $paymentMethodFilter = '';
+    public $search = '';
+    public $customerFilter = '';
+    public $warehouseFilter = '';
+    public $userFilter = '';
+    public $statusFilter = '';
+    public $dateFilter = '';
+    public $paymentMethodFilter = '';
 
     // Date range
-    public string $startDate = '';
-    public string $endDate = '';
+    public $startDate = '';
+    public $endDate = '';
 
     public function mount()
     {

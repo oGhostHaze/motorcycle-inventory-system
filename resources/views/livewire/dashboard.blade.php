@@ -103,16 +103,16 @@
         </div>
 
         {{-- Category Distribution --}}
-        <div class="lg:col-span-6">
-            <x-mary-card title="Category Distribution" subtitle="Products by category" class="h-80">
-                <div class="h-64 p-4">
+        <div class="lg:col-span-7">
+            <x-mary-card title="Category Distribution" subtitle="Products by category" class="h-96">
+                <div class="p-4 h-80">
                     <canvas id="categoryChart" class="w-full h-full"></canvas>
                 </div>
             </x-mary-card>
         </div>
 
         {{-- Stock Status Chart --}}
-        <div class="lg:col-span-6">
+        <div class="lg:col-span-5">
             <x-mary-card title="Stock Status" subtitle="Inventory overview" class="h-96">
                 <div class="p-4 h-80">
                     <canvas id="stockStatusChart" class="w-full h-full"></canvas>

@@ -20,62 +20,62 @@ class PointOfSale extends Component
     public ?SalesShift $currentShift = null;
 
     // Cart and sale data
-    public array $cartItems = [];
-    public float $subtotal = 0;
-    public float $discountAmount = 0;
-    public float $taxAmount = 0;
-    public float $totalAmount = 0;
-    public float $paidAmount = 0;
-    public float $changeAmount = 0;
+    public $cartItems = [];
+    public $subtotal = 0;
+    public $discountAmount = 0;
+    public $taxAmount = 0;
+    public $totalAmount = 0;
+    public $paidAmount = 0;
+    public $changeAmount = 0;
 
     // Form fields
-    public string $searchProduct = '';
+    public $searchProduct = '';
     public $selectedCustomer = null;
     public $selectedWarehouse = '';
-    public string $paymentMethod = 'cash';
-    public string $saleNotes = '';
+    public $paymentMethod = 'cash';
+    public $saleNotes = '';
 
     // UI state
-    public bool $showCustomerModal = false;
-    public bool $showPaymentModal = false;
-    public bool $showDiscountModal = false;
-    public bool $showHoldSaleModal = false;
-    public bool $showSearchCustomerModal = false;
-    public bool $showStartShiftModal = false;
-    public array $searchResults = [];
+    public $showCustomerModal = false;
+    public $showPaymentModal = false;
+    public $showDiscountModal = false;
+    public $showHoldSaleModal = false;
+    public $showSearchCustomerModal = false;
+    public $showStartShiftModal = false;
+    public $searchResults = [];
 
     // Customer form fields
-    public string $customerName = '';
-    public string $customerEmail = '';
-    public string $customerPhone = '';
-    public string $customerAddress = '';
+    public $customerName = '';
+    public $customerEmail = '';
+    public $customerPhone = '';
+    public $customerAddress = '';
 
     // Hold sale fields
-    public string $holdReference = '';
-    public string $holdNotes = '';
+    public $holdReference = '';
+    public $holdNotes = '';
 
     // Discount fields
-    public string $discountType = 'percentage'; // percentage or fixed
+    public $discountType = 'percentage'; // percentage or fixed
     public $discountValue = '';
 
     // Customer search
-    public string $customerSearch = '';
-    public array $customerSearchResults = [];
+    public $customerSearch = '';
+    public $customerSearchResults = [];
 
     // Barcode scanning
-    public bool $showBarcodeModal = false;
-    public string $barcodeInput = '';
-    public array $scannedItems = [];
+    public $showBarcodeModal = false;
+    public $barcodeInput = '';
+    public $scannedItems = [];
 
     // Shift start fields
     public $openingCash = '';
-    public string $openingNotes = '';
+    public $openingNotes = '';
 
     // Tax rate (configurable)
-    public float $taxRate = 0.12; // 12% VAT
+    public $taxRate = 0.12; // 12% VAT
 
-    public bool $showHeldSalesModal = false;
-    public array $heldSales = [];
+    public $showHeldSalesModal = false;
+    public $heldSales = [];
 
     public function mount()
     {
