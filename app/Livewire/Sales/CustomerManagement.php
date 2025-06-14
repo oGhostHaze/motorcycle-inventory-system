@@ -28,7 +28,7 @@ class CustomerManagement extends Component
     public $date_of_birth = '';
     public $gender = '';
     public $tax_id = '';
-    public $credit_limit = '';
+    public $credit_limit = 0.00;
     public $notes = '';
     public $is_active = true;
 
@@ -49,7 +49,7 @@ class CustomerManagement extends Component
         'date_of_birth' => 'nullable|date|before:today',
         'gender' => 'nullable|in:male,female,other',
         'tax_id' => 'nullable|string|max:50',
-        'credit_limit' => 'nullable|numeric|min:0',
+        'credit_limit' => 'required|numeric|min:0',
         'notes' => 'nullable|string',
         'is_active' => 'boolean',
     ];

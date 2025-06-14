@@ -159,7 +159,7 @@
 
     {{-- Create/Edit Modal --}}
     <x-mary-modal wire:model="showModal" title="{{ $editMode ? 'Edit Customer' : 'Create New Customer' }}"
-        subtitle="Manage customer information and details">
+        subtitle="Manage customer information and details" box-class="max-w-3xl">
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             {{-- Basic Information --}}
@@ -171,10 +171,7 @@
             <x-mary-input label="Email Address" wire:model="email" placeholder="customer@example.com" />
 
             <x-mary-input label="Phone Number" wire:model="phone" placeholder="Contact number" />
-            <x-mary-select label="Customer Type" :options="[
-                ['value' => 'individual', 'label' => 'Individual'],
-                ['value' => 'business', 'label' => 'Business'],
-            ]" wire:model="type" />
+            <x-mary-select label="Customer Type" :options="[['id' => 'individual', 'name' => 'Individual'], ['id' => 'business', 'name' => 'Business']]" wire:model="type" />
 
             {{-- Address Information --}}
             <div class="space-y-4 md:col-span-2">
@@ -184,7 +181,7 @@
             <x-mary-textarea label="Address" wire:model="address" placeholder="Complete address" rows="2"
                 class="md:col-span-2" />
             <x-mary-input label="City" wire:model="city" placeholder="City" />
-            <x-mary-select label="Customer Group" :options="$customerGroups->map(fn($g) => ['value' => $g->id, 'label' => $g->name])" wire:model="customer_group_id"
+            <x-mary-select label="Customer Group" :options="$customerGroups" wire:model="customer_group_id"
                 placeholder="Select group (optional)" />
 
             {{-- Additional Information --}}
@@ -194,15 +191,14 @@
 
             <x-mary-input label="Date of Birth" wire:model="date_of_birth" type="date" />
             <x-mary-select label="Gender" :options="[
-                ['value' => 'male', 'label' => 'Male'],
-                ['value' => 'female', 'label' => 'Female'],
-                ['value' => 'other', 'label' => 'Other'],
+                ['id' => 'male', 'name' => 'Male'],
+                ['id' => 'female', 'name' => 'Female'],
+                ['id' => 'other', 'name' => 'Other'],
             ]" wire:model="gender"
                 placeholder="Select gender (optional)" />
 
             <x-mary-input label="Tax ID" wire:model="tax_id" placeholder="TIN or Tax ID" />
-            <x-mary-input label="Credit Limit" wire:model="credit_limit" type="number" step="0.01"
-                placeholder="0.00" />
+            <x-mary-input label="Credit Limit" wire:model="credit_limit" type="number" step="0.01" />
 
             <x-mary-textarea label="Notes" wire:model="notes" placeholder="Additional customer notes"
                 rows="3" class="md:col-span-2" />
