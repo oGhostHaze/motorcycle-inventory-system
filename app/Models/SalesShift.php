@@ -26,7 +26,12 @@ class SalesShift extends Model
         'total_transactions',
         'opening_notes',
         'closing_notes',
-        'status'
+        'status',
+        'total_returns_count',
+        'total_returns_amount',
+        'processed_returns_count',
+        'processed_returns_amount',
+        'notes'
     ];
 
     protected $casts = [
@@ -41,7 +46,17 @@ class SalesShift extends Model
         'card_sales' => 'decimal:2',
         'other_sales' => 'decimal:2',
         'total_transactions' => 'integer',
+        'total_returns_count' => 'integer',
+        'total_returns_amount' => 'decimal:2',
+        'processed_returns_count' => 'integer',
+        'processed_returns_amount' => 'decimal:2',
     ];
+
+
+    public function returns()
+    {
+        return $this->hasMany(SaleReturn::class, 'sales_shift_id');
+    }
 
     public function user()
     {
@@ -167,5 +182,20 @@ class SalesShift extends Model
                 return $hours . 'h ' . $remainingMinutes . 'm';
             }
         }
+    }
+
+    public function getPendingReturnsCountAttribute()
+    {
+        return $this->returns()->where('status', 'pending')->count();
+    }
+
+    public function getProcessedReturnsCountAttribute()
+    {
+        return $this->returns()->where('status', 'processed')->count();
+    }
+
+    public function getTotalReturnAmountAttribute()
+    {
+        return $this->returns()->where('status', 'processed')->sum('refund_amount');
     }
 }

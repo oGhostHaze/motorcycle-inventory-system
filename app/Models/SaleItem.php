@@ -12,24 +12,25 @@ class SaleItem extends Model
     protected $fillable = [
         'sale_id',
         'product_id',
-        'product_variant_id',
-        'product_name',
-        'product_sku',
         'quantity',
+        'returned_quantity', // Added for return tracking
         'unit_price',
-        'discount_amount',
         'total_price',
-        'serial_numbers'
+        'cost_price',
+        'discount_amount',
+        'notes',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
+        'returned_quantity' => 'integer', // Added
         'unit_price' => 'decimal:2',
-        'discount_amount' => 'decimal:2',
         'total_price' => 'decimal:2',
-        'serial_numbers' => 'array',
+        'cost_price' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
     ];
 
+    // Relationships
     public function sale()
     {
         return $this->belongsTo(Sale::class);
@@ -40,8 +41,40 @@ class SaleItem extends Model
         return $this->belongsTo(Product::class);
     }
 
-    public function variant()
+    public function returnItems()
     {
-        return $this->belongsTo(ProductVariant::class, 'product_variant_id');
+        return $this->hasMany(SaleReturnItem::class);
+    }
+
+    // Accessors and Helper Methods
+    public function getAvailableToReturnAttribute()
+    {
+        return $this->quantity - $this->returned_quantity;
+    }
+
+    public function getIsFullyReturnedAttribute()
+    {
+        return $this->returned_quantity >= $this->quantity;
+    }
+
+    public function getReturnPercentageAttribute()
+    {
+        return $this->quantity > 0 ? ($this->returned_quantity / $this->quantity) * 100 : 0;
+    }
+
+    // Methods
+    public function canBeReturned($requestedQuantity = 1)
+    {
+        return ($this->returned_quantity + $requestedQuantity) <= $this->quantity;
+    }
+
+    public function incrementReturnedQuantity($quantity)
+    {
+        $this->increment('returned_quantity', $quantity);
+    }
+
+    public function decrementReturnedQuantity($quantity)
+    {
+        $this->decrement('returned_quantity', $quantity);
     }
 }

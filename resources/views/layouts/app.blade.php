@@ -299,6 +299,8 @@
                             link="{{ route('sales.pos') }}" />
                         <x-mary-menu-item title="Sales History" icon="o-document-text"
                             link="{{ route('sales.history') }}" />
+                        <x-mary-menu-item title="Returns & Exchanges" icon="o-arrow-uturn-left"
+                            link="{{ route('sales.returns') }}" />
                         <x-mary-menu-item title="Shift Management" icon="o-clock"
                             link="{{ route('sales.shifts') }}" />
                         <x-mary-menu-item title="Customers" icon="o-users" link="{{ route('sales.customers') }}" />

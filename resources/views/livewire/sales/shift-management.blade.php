@@ -23,7 +23,8 @@
     @if ($currentShift)
         <div class="mb-6">
             <x-mary-card class="bg-gradient-to-r from-primary/10 to-success/10 border-primary/20">
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+                {{-- UPDATED: Add returns to the existing grid --}}
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-5">
                     <div class="text-center">
                         <div class="text-2xl font-bold text-primary">{{ $currentShift->shift_number }}</div>
                         <div class="text-sm text-gray-600">Current Shift</div>
@@ -41,6 +42,11 @@
                         <div class="text-2xl font-bold text-warning">₱{{ number_format($currentShift->total_sales, 2) }}
                         </div>
                         <div class="text-sm text-gray-600">Total Sales</div>
+                    </div>
+                    {{-- NEW: Add returns column --}}
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-error">{{ $currentShift->total_returns_count ?? 0 }}</div>
+                        <div class="text-sm text-gray-600">Returns</div>
                     </div>
                 </div>
                 <div class="mt-4 text-center">
@@ -78,6 +84,7 @@
                         <th>Duration</th>
                         <th>Cash Flow</th>
                         <th>Sales</th>
+                        <th>Returns</th>
                         <th>Difference</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -126,6 +133,18 @@
                                 <div class="text-center">
                                     <div class="font-semibold">₱{{ number_format($shift->total_sales, 2) }}</div>
                                     <div class="text-xs text-gray-500">{{ $shift->total_transactions }} txns</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-center">
+                                    <div class="font-semibold text-error">{{ $shift->total_returns_count ?? 0 }}</div>
+                                    <div class="text-xs text-gray-500">
+                                        @if (($shift->total_returns_amount ?? 0) > 0)
+                                            ₱{{ number_format($shift->total_returns_amount, 2) }}
+                                        @else
+                                            No returns
+                                        @endif
+                                    </div>
                                 </div>
                             </td>
                             <td>
@@ -251,6 +270,17 @@
                             <span class="text-gray-600">Total Transactions:</span>
                             <span class="ml-2 font-semibold">{{ $currentShift->total_transactions }}</span>
                         </div>
+                        {{-- NEW: Add returns summary --}}
+                        <div>
+                            <span class="text-gray-600">Returns:</span>
+                            <span
+                                class="ml-2 font-semibold text-error">{{ $currentShift->total_returns_count ?? 0 }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Return Amount:</span>
+                            <span
+                                class="ml-2 font-semibold text-error">₱{{ number_format($currentShift->total_returns_amount ?? 0, 2) }}</span>
+                        </div>
                         <div class="col-span-2 pt-2 border-t">
                             <span class="text-gray-600">Expected Cash in Drawer:</span>
                             <span
@@ -365,7 +395,8 @@
                 {{-- Sales Breakdown --}}
                 <div>
                     <h4 class="mb-3 font-semibold">Sales Breakdown</h4>
-                    <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+                    {{-- UPDATED: Change from 4 columns to 5 --}}
+                    <div class="grid grid-cols-2 gap-4 md:grid-cols-5">
                         <div class="p-4 text-center rounded-lg bg-primary/10">
                             <div class="text-2xl font-bold text-primary">
                                 ₱{{ number_format($selectedShift->total_sales, 2) }}</div>
@@ -386,9 +417,39 @@
                             </div>
                             <div class="text-sm text-gray-600">Transactions</div>
                         </div>
+                        {{-- NEW: Add returns breakdown --}}
+                        <div class="p-4 text-center rounded-lg bg-error/10">
+                            <div class="text-2xl font-bold text-error">{{ $selectedShift->total_returns_count ?? 0 }}
+                            </div>
+                            <div class="text-sm text-gray-600">Returns</div>
+                        </div>
                     </div>
                 </div>
 
+                @if (($selectedShift->total_returns_count ?? 0) > 0)
+                    <div>
+                        <h4 class="mb-3 font-semibold">Return Summary</h4>
+                        <div class="p-4 rounded-lg bg-error/10">
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <strong>Total Returns:</strong> {{ $selectedShift->total_returns_count ?? 0 }}
+                                </div>
+                                <div>
+                                    <strong>Return Amount:</strong>
+                                    ₱{{ number_format($selectedShift->total_returns_amount ?? 0, 2) }}
+                                </div>
+                                <div>
+                                    <strong>Processed Returns:</strong>
+                                    {{ $selectedShift->processed_returns_count ?? 0 }}
+                                </div>
+                                <div>
+                                    <strong>Pending Returns:</strong>
+                                    {{ ($selectedShift->total_returns_count ?? 0) - ($selectedShift->processed_returns_count ?? 0) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
                 {{-- Notes --}}
                 @if ($selectedShift->opening_notes || $selectedShift->closing_notes)
                     <div>
@@ -434,6 +495,47 @@
                                                     class="badge-{{ $sale->payment_method === 'cash' ? 'success' : 'info' }} badge-xs" />
                                             </td>
                                             <td class="font-semibold">₱{{ number_format($sale->total_amount, 2) }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
+                @if ($selectedShift->returns && $selectedShift->returns->count() > 0)
+                    <div>
+                        <h4 class="mb-3 font-semibold">Return Transactions ({{ $selectedShift->returns->count() }})
+                        </h4>
+                        <div class="overflow-x-auto">
+                            <table class="table table-zebra table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Return #</th>
+                                        <th>Invoice</th>
+                                        <th>Customer</th>
+                                        <th>Time</th>
+                                        <th>Type</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($selectedShift->returns as $return)
+                                        <tr>
+                                            <td>{{ $return->return_number }}</td>
+                                            <td>{{ $return->sale->invoice_number }}</td>
+                                            <td>{{ $return->sale->customer?->name ?? 'Walk-in' }}</td>
+                                            <td>{{ $return->created_at->format('H:i') }}</td>
+                                            <td>
+                                                <x-mary-badge value="{{ ucfirst($return->type) }}"
+                                                    class="badge-{{ $return->type === 'refund' ? 'error' : ($return->type === 'exchange' ? 'info' : 'warning') }} badge-xs" />
+                                            </td>
+                                            <td class="font-semibold">₱{{ number_format($return->refund_amount, 2) }}
+                                            </td>
+                                            <td>
+                                                <x-mary-badge value="{{ ucfirst($return->status) }}"
+                                                    class="badge-{{ $return->status_color }} badge-xs" />
                                             </td>
                                         </tr>
                                     @endforeach

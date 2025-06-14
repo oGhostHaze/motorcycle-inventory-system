@@ -6,6 +6,8 @@ use App\Models\Sale;
 use App\Models\Customer;
 use App\Models\Warehouse;
 use App\Models\User;
+use App\Models\Inventory;
+use App\Models\StockMovement;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
@@ -24,10 +26,8 @@ class SalesHistory extends Component
     public $warehouseFilter = '';
     public $userFilter = '';
     public $statusFilter = '';
-    public $dateFilter = '';
     public $paymentMethodFilter = '';
-
-    // Date range
+    public $dateFilter = '';
     public $startDate = '';
     public $endDate = '';
 
@@ -39,30 +39,8 @@ class SalesHistory extends Component
 
     public function render()
     {
-        $sales = Sale::with(['customer', 'warehouse', 'user', 'items.product'])
-            ->when($this->search, fn($q) => $q->where('invoice_number', 'like', '%' . $this->search . '%')
-                ->orWhereHas('customer', function ($query) {
-                    $query->where('name', 'like', '%' . $this->search . '%');
-                }))
-            ->when($this->customerFilter, fn($q) => $q->where('customer_id', $this->customerFilter))
-            ->when($this->warehouseFilter, fn($q) => $q->where('warehouse_id', $this->warehouseFilter))
-            ->when($this->userFilter, fn($q) => $q->where('user_id', $this->userFilter))
-            ->when($this->statusFilter, fn($q) => $q->where('status', $this->statusFilter))
-            ->when($this->paymentMethodFilter, fn($q) => $q->where('payment_method', $this->paymentMethodFilter))
-            ->when($this->dateFilter, function ($q) {
-                switch ($this->dateFilter) {
-                    case 'today':
-                        return $q->whereDate('created_at', today());
-                    case 'yesterday':
-                        return $q->whereDate('created_at', now()->subDay());
-                    case 'week':
-                        return $q->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
-                    case 'month':
-                        return $q->whereMonth('created_at', now()->month);
-                    case 'custom':
-                        return $q->whereBetween('created_at', [$this->startDate, $this->endDate . ' 23:59:59']);
-                }
-            })
+        $sales = Sale::with(['customer', 'warehouse', 'user', 'items'])
+            ->when($this->getFiltersQuery(), fn($q) => $this->applyFilters($q))
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
@@ -120,16 +98,37 @@ class SalesHistory extends Component
         $this->showDetailsModal = true;
     }
 
-    public function printInvoice(Sale $sale)
+    public function printInvoice($saleId)
     {
-        // Logic to generate and print invoice
-        $this->success('Invoice print job sent!');
-    }
+        try {
+            // Find the sale
+            $sale = Sale::find($saleId);
 
-    public function duplicateSale(Sale $sale)
-    {
-        // Logic to duplicate sale (create new draft based on this sale)
-        $this->success('Sale duplicated as draft!');
+            if (!$sale) {
+                $this->error('Sale not found.');
+                return;
+            }
+
+            if ($sale->status !== 'completed') {
+                $this->error('Only completed sales can be printed.');
+                return;
+            }
+
+            // Generate the download URL
+            $downloadUrl = route('invoice.download', $sale->id);
+
+            // Dispatch browser event to trigger download - Correct Livewire 3 syntax
+            $this->dispatch(
+                'trigger-download',
+                url: $downloadUrl,
+                filename: 'invoice-' . $sale->invoice_number . '.pdf'
+            );
+
+            $this->success('Invoice download started!');
+        } catch (\Exception $e) {
+            \Log::error('Print invoice error: ' . $e->getMessage());
+            $this->error('Error generating invoice: ' . $e->getMessage());
+        }
     }
 
     public function refundSale(Sale $sale)
@@ -145,7 +144,7 @@ class SalesHistory extends Component
 
             // Restore inventory
             foreach ($sale->items as $item) {
-                $inventory = \App\Models\Inventory::where('product_id', $item->product_id)
+                $inventory = Inventory::where('product_id', $item->product_id)
                     ->where('warehouse_id', $sale->warehouse_id)
                     ->first();
 
@@ -156,10 +155,10 @@ class SalesHistory extends Component
                     $inventory->update(['quantity_on_hand' => $newQuantity]);
 
                     // Create stock movement
-                    \App\Models\StockMovement::create([
+                    StockMovement::create([
                         'product_id' => $item->product_id,
                         'warehouse_id' => $sale->warehouse_id,
-                        'type' => 'return',
+                        'type' => 'return', // Using correct enum value
                         'quantity_before' => $oldQuantity,
                         'quantity_changed' => $item->quantity,
                         'quantity_after' => $newQuantity,
@@ -202,18 +201,18 @@ class SalesHistory extends Component
             ->when($this->userFilter, fn($q) => $q->where('user_id', $this->userFilter))
             ->when($this->statusFilter, fn($q) => $q->where('status', $this->statusFilter))
             ->when($this->paymentMethodFilter, fn($q) => $q->where('payment_method', $this->paymentMethodFilter))
-            ->when($this->dateFilter, function ($q) {
+            ->when($this->dateFilter, function ($query) {
                 switch ($this->dateFilter) {
                     case 'today':
-                        return $q->whereDate('created_at', today());
+                        return $query->whereDate('created_at', now());
                     case 'yesterday':
-                        return $q->whereDate('created_at', now()->subDay());
+                        return $query->whereDate('created_at', now()->subDay());
                     case 'week':
-                        return $q->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                        return $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
                     case 'month':
-                        return $q->whereMonth('created_at', now()->month);
+                        return $query->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()]);
                     case 'custom':
-                        return $q->whereBetween('created_at', [$this->startDate, $this->endDate . ' 23:59:59']);
+                        return $query->whereBetween('created_at', [$this->startDate . ' 00:00:00', $this->endDate . ' 23:59:59']);
                 }
             });
     }

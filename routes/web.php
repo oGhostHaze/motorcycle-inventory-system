@@ -12,9 +12,11 @@ use App\Livewire\Inventory\StockAdjustments;
 use App\Livewire\Sales\PointOfSale;
 use App\Livewire\Sales\SalesHistory;
 use App\Livewire\Sales\CustomerManagement;
-use App\Livewire\Sales\ShiftManagement; // Added shift management
+use App\Livewire\Sales\ShiftManagement;
+use App\Livewire\Sales\ReturnsManagement;
 use App\Livewire\Purchasing\PurchaseOrderManagement;
 use App\Livewire\Purchasing\SupplierManagement;
+use App\Http\Controllers\InvoiceController; // Add this import
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -51,7 +53,14 @@ Route::middleware([
         Route::get('/pos', PointOfSale::class)->name('pos');
         Route::get('/history', SalesHistory::class)->name('history');
         Route::get('/customers', CustomerManagement::class)->name('customers');
-        Route::get('/shifts', ShiftManagement::class)->name('shifts'); // Added shift management route
+        Route::get('/shifts', ShiftManagement::class)->name('shifts');
+        Route::get('/returns', ReturnsManagement::class)->name('returns');
+    });
+
+    // Invoice Routes - Fixed implementation
+    Route::middleware(['permission:process_sales'])->prefix('invoice')->name('invoice.')->group(function () {
+        Route::get('/{sale}/download', [InvoiceController::class, 'download'])->name('download');
+        Route::get('/{sale}/preview', [InvoiceController::class, 'preview'])->name('preview');
     });
 
     // Purchasing Routes - For users with manage_inventory permission
@@ -116,7 +125,7 @@ Route::middleware([
         })->name('backup');
     });
 
-    // Add this to your routes/web.php temporarily for debugging
+    // Debug route (remove in production)
     Route::middleware(['auth'])->get('/debug-permissions', function () {
         $user = auth()->user();
 
@@ -130,9 +139,33 @@ Route::middleware([
             'can_manage_inventory' => $user->can('manage_inventory'),
             'can_process_sales' => $user->can('process_sales'),
             'can_view_reports' => $user->can('view_reports'),
-            'has_manage_inventory_permission' => method_exists($user, 'hasPermission') ? $user->hasPermission('manage_inventory') : 'Method not found',
-            'can_manage_inventory_method' => method_exists($user, 'canManageInventory') ? $user->canManageInventory() : 'Method not found',
-            'default_admin_permissions' => $user::getDefaultPermissions('admin'),
         ];
     });
 });
+
+Route::get('/debug-invoice/{sale}', function (App\Models\Sale $sale) {
+    try {
+        // Load the sale with all related data
+        $sale = $sale->load(['customer', 'warehouse', 'user', 'items.product']);
+
+        return [
+            'sale_found' => true,
+            'invoice_number' => $sale->invoice_number,
+            'status' => $sale->status,
+            'items_count' => $sale->items->count(),
+            'customer' => $sale->customer->name ?? 'Walk-in',
+            'warehouse' => $sale->warehouse->name,
+            'user' => $sale->user->name,
+            'download_url' => route('invoice.download', $sale->id),
+            'routes_available' => [
+                'invoice.download' => Route::has('invoice.download'),
+                'invoice.preview' => Route::has('invoice.preview'),
+            ]
+        ];
+    } catch (\Exception $e) {
+        return [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ];
+    }
+})->middleware(['auth'])->name('debug.invoice');
