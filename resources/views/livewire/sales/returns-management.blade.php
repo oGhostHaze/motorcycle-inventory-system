@@ -8,13 +8,16 @@
     </x-mary-header>
 
     {{-- Summary Stats --}}
-    <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-3">
+
+    <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-4">
         <x-mary-stat title="Total Returns" value="{{ number_format($totalReturns) }}" icon="o-arrow-uturn-left"
             color="text-primary" />
         <x-mary-stat title="Pending Returns" value="{{ number_format($pendingReturns) }}" icon="o-clock"
             color="text-warning" />
-        <x-mary-stat title="Total Refunded" value="₱{{ number_format($totalRefundAmount, 2) }}" icon="o-currency-dollar"
+        <x-mary-stat title="Processed Returns" value="{{ number_format($processedReturns) }}" icon="o-check-circle"
             color="text-success" />
+        <x-mary-stat title="Actually Refunded" value="₱{{ number_format($totalRefundAmount, 2) }}"
+            icon="o-currency-dollar" color="text-success" />
     </div>
 
     {{-- Filters --}}
@@ -162,7 +165,7 @@
                     wire:keydown.enter="searchSaleForReturn" placeholder="Enter invoice number to find sale..."
                     icon="o-magnifying-glass">
                     <x-slot:append>
-                        <x-mary-button label="Search" wire:click="searchSaleForReturn" class="btn-primary btn-sm" />
+                        <x-mary-button label="Search" wire:click="searchSaleForReturn" class="btn-primary" />
                     </x-slot:append>
                 </x-mary-input>
                 <div class="mt-2 text-sm text-gray-600">

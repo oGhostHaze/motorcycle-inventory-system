@@ -198,4 +198,49 @@ class SalesShift extends Model
     {
         return $this->returns()->where('status', 'processed')->sum('refund_amount');
     }
+    // In SalesShift model - Add proper calculated attributes (FIXED column names)
+
+    public function getActualRefundedAmountAttribute()
+    {
+        // Only count processed returns for actual refunded amount
+        return $this->returns()
+            ->where('status', 'processed')
+            ->where('type', 'refund')
+            ->sum('refund_amount');
+    }
+
+    public function getPendingReturnAmountAttribute()
+    {
+        // Amount tied up in pending returns (not yet refunded)
+        return $this->returns()
+            ->where('status', 'pending')
+            ->sum('refund_amount');
+    }
+
+    public function getProcessedReturnCountAttribute()
+    {
+        return $this->returns()
+            ->where('status', 'processed')
+            ->count();
+    }
+
+    public function getAdjustedCashSalesAttribute()
+    {
+        // Cash sales minus actual cash refunds
+        $cashRefunds = $this->returns()
+            ->where('status', 'processed')
+            ->where('type', 'refund')
+            ->whereHas('sale', function ($q) {
+                $q->where('payment_method', 'cash');
+            })
+            ->sum('refund_amount');
+
+        return $this->cash_sales - $cashRefunds;
+    }
+
+    public function getNetSalesAttribute()
+    {
+        // Total sales minus actual processed refunds
+        return $this->total_sales - $this->actual_refunded_amount;
+    }
 }

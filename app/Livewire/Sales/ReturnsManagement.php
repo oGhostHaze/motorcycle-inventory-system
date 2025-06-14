@@ -72,11 +72,6 @@ class ReturnsManagement extends Component
 
     public function render()
     {
-        $returns = SaleReturn::with(['sale.customer', 'warehouse', 'user', 'items.product'])
-            ->when($this->getFiltersQuery(), fn($q) => $this->applyFilters($q))
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
-
         $filterOptions = [
             'statuses' => [
                 ['id' => '', 'name' => 'All Status'],
@@ -110,21 +105,39 @@ class ReturnsManagement extends Component
             ]
         ];
 
-        // Calculate stats
+        $returns = SaleReturn::with(['sale.customer', 'warehouse', 'user', 'items.product'])
+            ->when($this->getFiltersQuery(), fn($q) => $this->applyFilters($q))
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+
+        // Calculate stats - FIXED: Only count processed returns
         $totalReturns = $returns->total();
         $pendingReturns = SaleReturn::where('status', 'pending')->count();
+
+        // CRITICAL FIX: Only sum refund amounts from PROCESSED returns
         $totalRefundAmount = SaleReturn::where('status', 'processed')
             ->where('type', 'refund')
             ->sum('refund_amount');
+
+        // Additional metrics for better reporting
+        $processedReturns = SaleReturn::where('status', 'processed')->count();
+        $rejectedReturns = SaleReturn::where('status', 'rejected')->count();
+
+        // Total amount tied up in pending returns (not yet refunded)
+        $pendingReturnAmount = SaleReturn::where('status', 'pending')->sum('refund_amount');
 
         return view('livewire.sales.returns-management', [
             'returns' => $returns,
             'filterOptions' => $filterOptions,
             'totalReturns' => $totalReturns,
             'pendingReturns' => $pendingReturns,
-            'totalRefundAmount' => $totalRefundAmount,
+            'totalRefundAmount' => $totalRefundAmount, // Only processed refunds
+            'processedReturns' => $processedReturns,
+            'rejectedReturns' => $rejectedReturns,
+            'pendingReturnAmount' => $pendingReturnAmount, // Separate pending amount
         ])->layout('layouts.app', ['title' => 'Returns & Exchanges']);
     }
+
 
     public function openReturnModal($saleId = null)
     {
@@ -510,6 +523,24 @@ class ReturnsManagement extends Component
             $this->success('Return processed successfully! Sale items and shift totals updated.');
         } catch (\Exception $e) {
             $this->error('Error processing return: ' . $e->getMessage());
+        }
+    }
+
+    private function updateShiftOnReturnProcessing($return)
+    {
+        if ($return->salesShift) {
+            // NOW update the financial totals
+            $return->salesShift->increment('total_returns_amount', $return->refund_amount);
+            $return->salesShift->increment('processed_returns_count', 1);
+            $return->salesShift->increment('processed_returns_amount', $return->refund_amount);
+
+            // If this is a cash refund, reduce cash total
+            if ($return->type === 'refund' && $return->sale->payment_method === 'cash') {
+                $return->salesShift->decrement('cash_sales', $return->refund_amount);
+            }
+
+            // Update overall shift totals
+            $return->salesShift->decrement('total_sales', $return->refund_amount);
         }
     }
 

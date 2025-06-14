@@ -333,32 +333,19 @@
                     </x-mary-menu-sub>
                 @endif
 
-                {{-- Administration - Admin Only --}}
                 @if ($isAdmin)
                     <x-mary-menu-separator />
                     <x-mary-menu-sub title="Administration" icon="o-cog-6-tooth">
                         <x-mary-menu-item title="User Management" icon="o-users"
                             link="{{ route('admin.users') }}" />
+                        <x-mary-menu-item title="Recompute Totals" icon="o-calculator"
+                            link="{{ route('admin.recompute') }}" />
                         <x-mary-menu-item title="System Settings" icon="o-adjustments-horizontal"
                             link="{{ route('admin.settings') }}" />
                         <x-mary-menu-item title="Activity Logs" icon="o-clipboard-document-list"
                             link="{{ route('admin.activity-logs') }}" />
                         <x-mary-menu-item title="Database Backup" icon="o-server"
                             link="{{ route('admin.backup') }}" />
-                    </x-mary-menu-sub>
-                @endif
-
-                {{-- Quick Actions - Admin and Manager --}}
-                @if ($isAdmin || $isManager)
-                    <x-mary-menu-separator />
-                    <x-mary-menu-sub title="Quick Actions" icon="o-bolt">
-                        <x-mary-menu-item title="New Sale" icon="o-shopping-cart" link="{{ route('sales.pos') }}" />
-                        <x-mary-menu-item title="Add Product" icon="o-plus"
-                            link="{{ route('inventory.products') }}" />
-                        <x-mary-menu-item title="Stock Adjustment" icon="o-adjustments-horizontal"
-                            link="{{ route('inventory.stock-adjustments') }}" />
-                        <x-mary-menu-item title="New Purchase Order" icon="o-document-plus"
-                            link="{{ route('purchasing.purchase-orders') }}" />
                     </x-mary-menu-sub>
                 @endif
 

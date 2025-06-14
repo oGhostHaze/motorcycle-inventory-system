@@ -1,23 +1,24 @@
 <?php
 
 use App\Livewire\Dashboard;
+use App\Livewire\Sales\PointOfSale;
+use App\Livewire\Sales\SalesHistory;
+use Illuminate\Support\Facades\Route;
 use App\Livewire\Admin\UserManagement;
+use App\Livewire\Inventory\StockLevels;
+use App\Livewire\Sales\ShiftManagement;
+use App\Livewire\Sales\ReturnsManagement;
+use App\Livewire\Inventory\LowStockAlerts;
+use App\Livewire\Inventory\StockMovements;
+use App\Livewire\Sales\CustomerManagement;
+use App\Livewire\Admin\RecomputeManagement;
+use App\Livewire\Inventory\StockAdjustments;
 use App\Livewire\Inventory\ProductManagement;
 use App\Livewire\Inventory\CategoryManagement;
 use App\Livewire\Inventory\WarehouseManagement;
-use App\Livewire\Inventory\StockLevels;
-use App\Livewire\Inventory\StockMovements;
-use App\Livewire\Inventory\LowStockAlerts;
-use App\Livewire\Inventory\StockAdjustments;
-use App\Livewire\Sales\PointOfSale;
-use App\Livewire\Sales\SalesHistory;
-use App\Livewire\Sales\CustomerManagement;
-use App\Livewire\Sales\ShiftManagement;
-use App\Livewire\Sales\ReturnsManagement;
-use App\Livewire\Purchasing\PurchaseOrderManagement;
 use App\Livewire\Purchasing\SupplierManagement;
+use App\Livewire\Purchasing\PurchaseOrderManagement;
 use App\Http\Controllers\InvoiceController; // Add this import
-use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -35,6 +36,41 @@ Route::middleware([
     // Admin Routes - Only for admin users
     Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/users', UserManagement::class)->name('users');
+
+        Route::get('/recompute', RecomputeManagement::class)->name('recompute');
+
+        Route::post('/recompute/run', function () {
+            $type = request('type', 'all');
+            $dryRun = request('dry_run', false);
+
+            $command = 'returns:recompute';
+
+            switch ($type) {
+                case 'shifts':
+                    $command .= ' --shifts';
+                    break;
+                case 'items':
+                    $command .= ' --items';
+                    break;
+                default:
+                    $command .= ' --all';
+            }
+
+            if ($dryRun) {
+                $command .= ' --dry-run';
+            }
+
+            // Capture command output
+            $output = [];
+            $exitCode = 0;
+            exec("cd " . base_path() . " && php artisan {$command} 2>&1", $output, $exitCode);
+
+            return response()->json([
+                'success' => $exitCode === 0,
+                'output' => implode("\n", $output),
+                'command' => $command
+            ]);
+        })->name('recompute.run');
     });
 
     // Inventory Management Routes - For users with manage_inventory permission
@@ -124,48 +160,4 @@ Route::middleware([
             return view('placeholder', ['title' => 'Database Backup', 'message' => 'Coming Soon']);
         })->name('backup');
     });
-
-    // Debug route (remove in production)
-    Route::middleware(['auth'])->get('/debug-permissions', function () {
-        $user = auth()->user();
-
-        return [
-            'user_id' => $user->id,
-            'user_name' => $user->name,
-            'user_email' => $user->email,
-            'user_role' => $user->role ?? 'No role set',
-            'user_permissions' => $user->permissions ?? 'No permissions set',
-            'is_admin' => method_exists($user, 'isAdmin') ? $user->isAdmin() : 'Method not found',
-            'can_manage_inventory' => $user->can('manage_inventory'),
-            'can_process_sales' => $user->can('process_sales'),
-            'can_view_reports' => $user->can('view_reports'),
-        ];
-    });
 });
-
-Route::get('/debug-invoice/{sale}', function (App\Models\Sale $sale) {
-    try {
-        // Load the sale with all related data
-        $sale = $sale->load(['customer', 'warehouse', 'user', 'items.product']);
-
-        return [
-            'sale_found' => true,
-            'invoice_number' => $sale->invoice_number,
-            'status' => $sale->status,
-            'items_count' => $sale->items->count(),
-            'customer' => $sale->customer->name ?? 'Walk-in',
-            'warehouse' => $sale->warehouse->name,
-            'user' => $sale->user->name,
-            'download_url' => route('invoice.download', $sale->id),
-            'routes_available' => [
-                'invoice.download' => Route::has('invoice.download'),
-                'invoice.preview' => Route::has('invoice.preview'),
-            ]
-        ];
-    } catch (\Exception $e) {
-        return [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ];
-    }
-})->middleware(['auth'])->name('debug.invoice');
