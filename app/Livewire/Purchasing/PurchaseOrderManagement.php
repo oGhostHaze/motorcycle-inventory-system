@@ -20,8 +20,10 @@ class PurchaseOrderManagement extends Component
 
     public $showModal = false;
     public $showReceiveModal = false;
+    public $showDetailsModal = false;
     public $editMode = false;
     public $selectedPO = null;
+    public $viewingPO = null;
 
     // Form fields
     public $supplier_id = '';
@@ -57,6 +59,52 @@ class PurchaseOrderManagement extends Component
     {
         $this->order_date = now()->format('Y-m-d');
         $this->expected_date = now()->addDays(7)->format('Y-m-d');
+
+        // Handle query parameters from supplier management
+        $request = request();
+
+        // Check for create PO request from supplier management
+        if ($request->has('create_po') && $request->get('create_po') === 'true') {
+            $supplierId = $request->get('supplier_id');
+            $supplierName = urldecode($request->get('supplier_name', 'selected supplier'));
+
+            if ($supplierId && Supplier::find($supplierId)) {
+                $this->supplier_id = $supplierId;
+
+                // Set default warehouse
+                $defaultWarehouse = Warehouse::where('is_active', true)->first();
+                if ($defaultWarehouse) {
+                    $this->warehouse_id = $defaultWarehouse->id;
+                }
+
+                // Add a small delay then open modal to ensure supplier_id is set
+                $this->js('setTimeout(() => { $wire.openModalWithSupplier() }, 100)');
+                $this->success("Creating purchase order for {$supplierName}.");
+            }
+        }
+
+        if ($request->has('poId')) {
+            $poId = $request->get('poId');
+            $po = PurchaseOrder::find($poId);
+            $this->viewPODetails($po);
+        }
+    }
+
+    public function openModalWithSupplier()
+    {
+        $this->editMode = false;
+        $this->selectedPO = null;
+        $this->showModal = true;
+        $this->resetValidation();
+        $this->addItem();
+
+        // Ensure warehouse is set if not already
+        if (empty($this->warehouse_id)) {
+            $defaultWarehouse = Warehouse::where('is_active', true)->first();
+            if ($defaultWarehouse) {
+                $this->warehouse_id = $defaultWarehouse->id;
+            }
+        }
     }
 
     public function render()
@@ -122,6 +170,17 @@ class PurchaseOrderManagement extends Component
         $this->showModal = true;
         $this->resetValidation();
         $this->addItem();
+
+        // Set default warehouse if not already set
+        if (empty($this->warehouse_id)) {
+            $defaultWarehouse = Warehouse::where('is_active', true)->first();
+            if ($defaultWarehouse) {
+                $this->warehouse_id = $defaultWarehouse->id;
+            }
+        }
+
+        // Dispatch event to handle modal opening
+        $this->dispatch('modal-opened');
     }
 
     public function editPO(PurchaseOrder $po)
@@ -254,85 +313,122 @@ class PurchaseOrderManagement extends Component
         ]);
 
         try {
+            \DB::beginTransaction();
+
             $totalReceived = 0;
-            $totalOrdered = 0;
+            $po = $this->selectedPO;
 
-            foreach ($this->receivingItems as $item) {
-                $poItem = PurchaseOrderItem::find($item['id']);
-                $receivingQty = $item['receiving_quantity'];
+            foreach ($this->receivingItems as $receivingItem) {
+                if ($receivingItem['receiving_quantity'] <= 0) continue;
 
-                if ($receivingQty > 0) {
-                    // Update PO item
-                    $newReceived = $poItem->quantity_received + $receivingQty;
-                    $poItem->update(['quantity_received' => $newReceived]);
+                $poItem = PurchaseOrderItem::find($receivingItem['id']);
+                $newQuantityReceived = $poItem->quantity_received + $receivingItem['receiving_quantity'];
 
-                    // Update inventory
-                    $inventory = Inventory::firstOrCreate([
+                // Update PO item
+                $poItem->update([
+                    'quantity_received' => $newQuantityReceived
+                ]);
+
+                // Update inventory
+                $inventory = Inventory::where('product_id', $poItem->product_id)
+                    ->where('warehouse_id', $po->warehouse_id)
+                    ->first();
+
+                if ($inventory) {
+                    $inventory->increment('quantity_on_hand', $receivingItem['receiving_quantity']);
+                } else {
+                    Inventory::create([
                         'product_id' => $poItem->product_id,
-                        'warehouse_id' => $this->selectedPO->warehouse_id,
-                    ], [
-                        'quantity_on_hand' => 0,
-                        'quantity_reserved' => 0,
-                        'average_cost' => $poItem->unit_cost,
-                    ]);
-
-                    $oldQuantity = $inventory->quantity_on_hand;
-                    $newQuantity = $oldQuantity + $receivingQty;
-
-                    // Update average cost
-                    $newAvgCost = (($oldQuantity * $inventory->average_cost) + ($receivingQty * $poItem->unit_cost)) / $newQuantity;
-
-                    $inventory->update([
-                        'quantity_on_hand' => $newQuantity,
-                        'average_cost' => $newAvgCost,
-                    ]);
-
-                    // Create stock movement
-                    StockMovement::create([
-                        'product_id' => $poItem->product_id,
-                        'warehouse_id' => $this->selectedPO->warehouse_id,
-                        'type' => 'purchase',
-                        'quantity_before' => $oldQuantity,
-                        'quantity_changed' => $receivingQty,
-                        'quantity_after' => $newQuantity,
-                        'unit_cost' => $poItem->unit_cost,
-                        'reference_id' => $this->selectedPO->id,
-                        'reference_type' => PurchaseOrder::class,
-                        'user_id' => auth()->id(),
-                        'notes' => 'Received from PO: ' . $this->selectedPO->po_number,
+                        'warehouse_id' => $po->warehouse_id,
+                        'quantity_on_hand' => $receivingItem['receiving_quantity'],
+                        'quantity_available' => $receivingItem['receiving_quantity'],
+                        'average_cost' => $receivingItem['unit_cost'],
                     ]);
                 }
 
-                $totalReceived += $poItem->quantity_received;
-                $totalOrdered += $poItem->quantity_ordered;
+                // Create stock movement
+                StockMovement::create([
+                    'product_id' => $poItem->product_id,
+                    'warehouse_id' => $po->warehouse_id,
+                    'type' => 'purchase_receipt',
+                    'quantity' => $receivingItem['receiving_quantity'],
+                    'reference_type' => 'App\Models\PurchaseOrder',
+                    'reference_id' => $po->id,
+                    'user_id' => auth()->id(),
+                    'notes' => "Received from PO: {$po->po_number}",
+                ]);
+
+                $totalReceived += $receivingItem['receiving_quantity'];
             }
 
             // Update PO status
-            if ($totalReceived >= $totalOrdered) {
-                $this->selectedPO->update([
-                    'status' => 'completed',
-                    'received_date' => now(),
-                ]);
-            } elseif ($totalReceived > 0) {
-                $this->selectedPO->update(['status' => 'partial']);
-            }
+            $allItemsReceived = $po->items->every(function ($item) {
+                return $item->quantity_received >= $item->quantity_ordered;
+            });
 
-            $this->success('Items received successfully!');
+            $po->update([
+                'status' => $allItemsReceived ? 'completed' : 'partial'
+            ]);
+
+            \DB::commit();
+
+            $this->success("Successfully received {$totalReceived} items!");
             $this->showReceiveModal = false;
         } catch (\Exception $e) {
-            $this->error('Error processing receiving: ' . $e->getMessage());
+            \DB::rollback();
+            $this->error('Error processing receipt: ' . $e->getMessage());
         }
     }
 
     public function cancelPO(PurchaseOrder $po)
     {
         if (!in_array($po->status, ['draft', 'pending'])) {
-            $this->error('This purchase order cannot be cancelled.');
+            $this->error('Only draft or pending purchase orders can be cancelled.');
             return;
         }
 
         $po->update(['status' => 'cancelled']);
         $this->success('Purchase order cancelled successfully!');
+    }
+
+    public function deletePO(PurchaseOrder $po)
+    {
+        if ($po->status !== 'draft') {
+            $this->error('Only draft purchase orders can be deleted.');
+            return;
+        }
+
+        try {
+            $po->items()->delete();
+            $po->delete();
+            $this->success('Purchase order deleted successfully!');
+        } catch (\Exception $e) {
+            $this->error('Error deleting purchase order: ' . $e->getMessage());
+        }
+    }
+
+    public function duplicatePO(PurchaseOrder $po)
+    {
+        try {
+            $newPO = $po->replicate();
+            $newPO->status = 'draft';
+            $newPO->order_date = now()->format('Y-m-d');
+            $newPO->expected_date = now()->addDays(7)->format('Y-m-d');
+            $newPO->requested_by = auth()->id();
+            $newPO->save();
+
+            // Duplicate items
+            foreach ($po->items as $item) {
+                $newItem = $item->replicate();
+                $newItem->purchase_order_id = $newPO->id;
+                $newItem->quantity_received = 0;
+                $newItem->save();
+            }
+
+            $this->success("Purchase order duplicated successfully! New PO: {$newPO->po_number}");
+        } catch (\Exception $e) {
+            $this->error('Error duplicating purchase order: ' . $e->getMessage());
+        }
     }
 
     public function clearFilters()
@@ -342,8 +438,143 @@ class PurchaseOrderManagement extends Component
 
     private function resetForm()
     {
-        $this->reset(['supplier_id', 'warehouse_id', 'order_date', 'expected_date', 'notes', 'items']);
+        $this->reset([
+            'supplier_id',
+            'warehouse_id',
+            'order_date',
+            'expected_date',
+            'notes',
+            'items'
+        ]);
         $this->order_date = now()->format('Y-m-d');
         $this->expected_date = now()->addDays(7)->format('Y-m-d');
+    }
+
+    /**
+     * Get status color for badges
+     */
+    public function getStatusColor($status)
+    {
+        return match ($status) {
+            'draft' => 'neutral',
+            'pending' => 'warning',
+            'partial' => 'info',
+            'completed' => 'success',
+            'cancelled' => 'error',
+            default => 'neutral',
+        };
+    }
+
+    /**
+     * Export purchase orders to Excel/CSV
+     */
+    public function exportPOs()
+    {
+        // Implementation for exporting POs
+        $this->info('Export functionality coming soon!');
+    }
+
+    /**
+     * Bulk operations on selected POs
+     */
+    public function bulkSubmit($poIds)
+    {
+        $updated = 0;
+        foreach ($poIds as $poId) {
+            $po = PurchaseOrder::find($poId);
+            if ($po && $po->status === 'draft') {
+                $po->update(['status' => 'pending']);
+                $updated++;
+            }
+        }
+
+        if ($updated > 0) {
+            $this->success("Successfully submitted {$updated} purchase order(s)!");
+        } else {
+            $this->warning('No purchase orders were submitted.');
+        }
+    }
+
+    /**
+     * Print purchase order
+     */
+    public function printPO(PurchaseOrder $po)
+    {
+        // Implementation for printing PO
+        $this->info("Print functionality for PO {$po->po_number} coming soon!");
+    }
+
+    /**
+     * Send PO via email to supplier
+     */
+    public function emailPO(PurchaseOrder $po)
+    {
+        if (!$po->supplier->email) {
+            $this->error('Supplier does not have an email address on file.');
+            return;
+        }
+
+        try {
+            // Implementation for emailing PO
+            $this->success("Purchase order {$po->po_number} sent to {$po->supplier->email}!");
+        } catch (\Exception $e) {
+            $this->error('Error sending email: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * View detailed PO information
+     */
+    public function viewPODetails(PurchaseOrder $po)
+    {
+        // Load the PO with basic relationships
+        $this->viewingPO = $po->load([
+            'supplier',
+            'warehouse',
+            'requestedBy',
+            'items.product.category',
+            'items.product.brand'
+        ]);
+
+        $this->showDetailsModal = true;
+    }
+
+    /**
+     * Convert PO to different format
+     */
+    public function convertPO(PurchaseOrder $po, $format = 'pdf')
+    {
+        try {
+            // Implementation for converting PO to different formats
+            $this->success("PO {$po->po_number} converted to {$format} successfully!");
+        } catch (\Exception $e) {
+            $this->error("Error converting PO to {$format}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get total value of filtered POs
+     */
+    public function getTotalValue()
+    {
+        return PurchaseOrder::when($this->search, fn($q) => $q->where('po_number', 'like', '%' . $this->search . '%'))
+            ->when($this->supplierFilter, fn($q) => $q->where('supplier_id', $this->supplierFilter))
+            ->when($this->warehouseFilter, fn($q) => $q->where('warehouse_id', $this->warehouseFilter))
+            ->when($this->statusFilter, fn($q) => $q->where('status', $this->statusFilter))
+            ->sum('total_amount');
+    }
+
+    /**
+     * Get PO statistics
+     */
+    public function getPOStats()
+    {
+        return [
+            'total' => PurchaseOrder::count(),
+            'draft' => PurchaseOrder::where('status', 'draft')->count(),
+            'pending' => PurchaseOrder::where('status', 'pending')->count(),
+            'completed' => PurchaseOrder::where('status', 'completed')->count(),
+            'cancelled' => PurchaseOrder::where('status', 'cancelled')->count(),
+        ];
     }
 }

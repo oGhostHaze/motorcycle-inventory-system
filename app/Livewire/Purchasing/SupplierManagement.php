@@ -5,6 +5,8 @@ namespace App\Livewire\Purchasing;
 use App\Models\Supplier;
 use App\Models\SupplierProduct;
 use App\Models\Product;
+use App\Models\PurchaseOrder;
+use App\Models\Warehouse;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
@@ -16,6 +18,7 @@ class SupplierManagement extends Component
 
     public $showModal = false;
     public $showProductsModal = false;
+    public $showOrdersModal = false;
     public $editMode = false;
     public $selectedSupplier = null;
 
@@ -48,6 +51,10 @@ class SupplierManagement extends Component
     public $statusFilter = '';
     public $ratingFilter = '';
 
+    // Orders modal data
+    public $supplierOrders = [];
+    public $ordersSearch = '';
+
     protected $rules = [
         'name' => 'required|string|max:255',
         'contact_person' => 'nullable|string|max:255',
@@ -70,41 +77,17 @@ class SupplierManagement extends Component
                 ->orWhere('email', 'like', '%' . $this->search . '%'))
             ->when($this->countryFilter, fn($q) => $q->where('country', $this->countryFilter))
             ->when($this->statusFilter !== '', fn($q) => $q->where('is_active', $this->statusFilter))
-            ->when($this->ratingFilter, function ($q) {
-                switch ($this->ratingFilter) {
-                    case 'high':
-                        return $q->where('rating', '>=', 4);
-                    case 'medium':
-                        return $q->whereBetween('rating', [2.5, 3.9]);
-                    case 'low':
-                        return $q->where('rating', '<', 2.5);
-                }
-            })
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
+            ->when($this->ratingFilter, fn($q) => $q->where('rating', '>=', $this->ratingFilter))
+            ->orderBy('name')
+            ->paginate(12);
 
-        $countries = Supplier::distinct()->pluck('country')->filter()->sort();
+        $countries = Supplier::distinct()->pluck('country')->filter()->sort()->values();
         $products = Product::where('status', 'active')->orderBy('name')->get();
-
-        $filterOptions = [
-            'countries' => $countries->map(fn($c) => ['value' => $c, 'label' => $c]),
-            'statuses' => [
-                ['value' => '', 'label' => 'All Status'],
-                ['value' => '1', 'label' => 'Active'],
-                ['value' => '0', 'label' => 'Inactive'],
-            ],
-            'ratings' => [
-                ['value' => '', 'label' => 'All Ratings'],
-                ['value' => 'high', 'label' => 'High (4.0+)'],
-                ['value' => 'medium', 'label' => 'Medium (2.5-3.9)'],
-                ['value' => 'low', 'label' => 'Low (<2.5)'],
-            ]
-        ];
 
         return view('livewire.purchasing.supplier-management', [
             'suppliers' => $suppliers,
+            'countries' => $countries,
             'products' => $products,
-            'filterOptions' => $filterOptions,
         ])->layout('layouts.app', ['title' => 'Supplier Management']);
     }
 
@@ -169,6 +152,95 @@ class SupplierManagement extends Component
             $this->error('Error saving supplier: ' . $e->getMessage());
         }
     }
+
+    // ========== FIXED METHODS FOR CREATE PO AND VIEW ORDERS ==========
+
+    /**
+     * Create Purchase Order - Redirect to PO management with supplier pre-selected
+     * Using Livewire's redirect with query parameters for better reliability
+     */
+    public function createPurchaseOrder($supplierId)
+    {
+        $supplier = Supplier::find($supplierId);
+
+        if (!$supplier) {
+            $this->error('Supplier not found.');
+            return;
+        }
+
+        // Use query parameters instead of session for more reliable data passing
+        return redirect()->route('purchasing.purchase-orders', [
+            'create_po' => 'true',
+            'supplier_id' => $supplier->id,
+            'supplier_name' => urlencode($supplier->name)
+        ]);
+    }
+
+    /**
+     * View Orders - Show modal with supplier's purchase orders
+     * Fixed to properly load and display orders
+     */
+    public function viewOrders($supplierId)
+    {
+        $supplier = Supplier::find($supplierId);
+
+        if (!$supplier) {
+            $this->error('Supplier not found.');
+            return;
+        }
+
+        $this->selectedSupplier = $supplier;
+        $this->ordersSearch = ''; // Reset search
+        $this->loadSupplierOrders();
+        $this->showOrdersModal = true;
+    }
+
+    /**
+     * Load purchase orders for selected supplier
+     * Enhanced with better error handling
+     */
+    private function loadSupplierOrders()
+    {
+        if (!$this->selectedSupplier) return;
+
+        try {
+            $query = PurchaseOrder::with(['warehouse', 'requestedBy', 'items.product'])
+                ->where('supplier_id', $this->selectedSupplier->id);
+
+            if ($this->ordersSearch) {
+                $query->where('po_number', 'like', '%' . $this->ordersSearch . '%');
+            }
+
+            $this->supplierOrders = $query->orderBy('created_at', 'desc')->get();
+        } catch (\Exception $e) {
+            $this->error('Error loading orders: ' . $e->getMessage());
+            $this->supplierOrders = collect();
+        }
+    }
+
+    /**
+     * Update orders search - Fixed to properly trigger reload
+     */
+    public function updatedOrdersSearch()
+    {
+        $this->loadSupplierOrders();
+    }
+
+    /**
+     * Go to specific purchase order - Fixed to work from modal
+     */
+    public function goToPurchaseOrder($purchaseOrderId)
+    {
+        // Close the modal first
+        $this->showOrdersModal = false;
+
+        // Redirect with the PO ID
+        return redirect()->route('purchasing.purchase-orders', [
+            'poId' => $purchaseOrderId
+        ]);
+    }
+
+    // ========== EXISTING METHODS ==========
 
     public function deleteSupplier(Supplier $supplier)
     {
@@ -334,8 +406,6 @@ class SupplierManagement extends Component
 
     public function getRatingStars($rating)
     {
-        if (!$rating) return '☆☆☆☆☆';
-
         $stars = '';
         for ($i = 1; $i <= 5; $i++) {
             $stars .= $i <= $rating ? '★' : '☆';

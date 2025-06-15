@@ -9,6 +9,7 @@ class PriceHistory extends Model
 {
     use HasFactory;
 
+
     protected $fillable = [
         'product_id',
         'old_cost_price',

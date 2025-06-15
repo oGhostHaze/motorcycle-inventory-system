@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
 
 class Product extends Model
 {
@@ -59,6 +60,8 @@ class Product extends Model
         'images' => 'array',
     ];
 
+    // ========== RELATIONSHIPS ==========
+
     public function category()
     {
         return $this->belongsTo(Category::class);
@@ -84,13 +87,11 @@ class Product extends Model
         return $this->hasMany(Inventory::class);
     }
 
-    // FIXED: Added missing saleItems relationship
     public function saleItems()
     {
         return $this->hasMany(SaleItem::class);
     }
 
-    // ADDED: Helper relationship for completed sales only
     public function completedSaleItems()
     {
         return $this->hasMany(SaleItem::class)->whereHas('sale', function ($query) {
@@ -98,7 +99,6 @@ class Product extends Model
         });
     }
 
-    // ADDED: Get sales through sale items
     public function sales()
     {
         return $this->hasManyThrough(Sale::class, SaleItem::class, 'product_id', 'id', 'id', 'sale_id');
@@ -141,6 +141,8 @@ class Product extends Model
         return $this->hasMany(WarrantyClaim::class);
     }
 
+    // ========== COMPUTED ATTRIBUTES ==========
+
     public function getTotalStockAttribute()
     {
         return $this->inventory()->sum('quantity_on_hand');
@@ -161,21 +163,14 @@ class Product extends Model
         return $this->reviews()->where('is_approved', true)->count();
     }
 
-    // ADDED: Get total sold quantity
     public function getTotalSoldAttribute()
     {
         return $this->completedSaleItems()->sum('quantity');
     }
 
-    // ADDED: Get total revenue generated
     public function getTotalRevenueAttribute()
     {
         return $this->completedSaleItems()->sum('total_price');
-    }
-
-    public function isLowStock()
-    {
-        return $this->total_stock <= $this->min_stock_level;
     }
 
     public function getPreferredSupplierAttribute()
@@ -187,9 +182,36 @@ class Product extends Model
             ->first()?->supplier;
     }
 
+    // ========== HELPER METHODS ==========
+
+    public function isLowStock()
+    {
+        return $this->total_stock <= $this->min_stock_level;
+    }
+
+    /**
+     * Safely log price changes - only if price_histories table exists
+     */
+    public static function logPriceChange($product, $oldValues, $newValues, $reason = null)
+    {
+        try {
+            // Check if price_histories table exists and PriceHistory model is available
+            if (Schema::hasTable('price_histories') && class_exists(\App\Models\PriceHistory::class)) {
+                \App\Models\PriceHistory::logPriceChange($product, $oldValues, $newValues, $reason);
+            }
+        } catch (\Exception $e) {
+            // Silently fail if price history logging fails
+            // This prevents price updates from failing due to missing table
+            \Log::warning('Price history logging failed: ' . $e->getMessage());
+        }
+    }
+
+    // ========== MODEL EVENTS ==========
+
     protected static function boot()
     {
         parent::boot();
+
         static::creating(function ($model) {
             $model->slug = Str::slug($model->name);
             if (empty($model->sku)) {
@@ -198,14 +220,17 @@ class Product extends Model
         });
 
         static::updating(function ($model) {
-            // Log price changes
+            // Safely log price changes
             if ($model->isDirty(['cost_price', 'selling_price', 'wholesale_price'])) {
-                $oldValues = $model->getOriginal();
-                $newValues = $model->getAttributes();
+                try {
+                    $oldValues = $model->getOriginal();
+                    $newValues = $model->getAttributes();
 
-                // Only log if PriceHistory model exists
-                if (class_exists(\App\Models\PriceHistory::class)) {
-                    \App\Models\PriceHistory::logPriceChange($model, $oldValues, $newValues);
+                    // Use the safe logging method
+                    static::logPriceChange($model, $oldValues, $newValues, 'Product update');
+                } catch (\Exception $e) {
+                    // Don't let price history logging failure prevent product updates
+                    \Log::warning('Price history logging failed during product update: ' . $e->getMessage());
                 }
             }
         });

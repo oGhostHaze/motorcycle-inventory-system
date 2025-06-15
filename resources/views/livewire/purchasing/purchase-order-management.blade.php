@@ -56,85 +56,93 @@
                             <td>
                                 <div>
                                     <div class="font-medium">{{ $po->supplier->name }}</div>
-                                    @if ($po->supplier->lead_time_days)
-                                        <div class="text-sm text-gray-500">{{ $po->supplier->lead_time_days }} days lead
-                                            time</div>
+                                    @if ($po->supplier->contact_person)
+                                        <div class="text-sm text-gray-500">{{ $po->supplier->contact_person }}</div>
                                     @endif
                                 </div>
                             </td>
+                            <td>{{ $po->warehouse->name }}</td>
+                            <td>{{ $po->order_date->format('M d, Y') }}</td>
                             <td>
-                                <span class="text-sm">{{ $po->warehouse->name }}</span>
-                            </td>
-                            <td>
-                                <div class="text-sm">
-                                    <div>{{ $po->order_date->format('M d, Y') }}</div>
-                                    <div class="text-gray-500">{{ $po->order_date->diffForHumans() }}</div>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="text-sm">
-                                    <div
-                                        class="{{ $po->expected_date->isPast() && $po->status !== 'completed' ? 'text-error font-medium' : '' }}">
+                                @if ($po->expected_date)
+                                    <div class="{{ $po->expected_date->isPast() ? 'text-red-600' : 'text-gray-700' }}">
                                         {{ $po->expected_date->format('M d, Y') }}
                                     </div>
                                     @if ($po->expected_date->isPast() && $po->status !== 'completed')
-                                        <div class="text-xs text-error">Overdue</div>
+                                        <div class="text-xs text-red-500">Overdue</div>
                                     @endif
+                                @else
+                                    <span class="text-gray-400">Not set</span>
+                                @endif
+                            </td>
+                            <td>
+                                <div class="text-sm">
+                                    {{ $po->items->count() }} item{{ $po->items->count() !== 1 ? 's' : '' }}
                                 </div>
                             </td>
                             <td>
-                                <div class="text-center">
-                                    <span class="font-semibold">{{ $po->items->count() }}</span>
-                                    <div class="text-xs text-gray-500">
-                                        {{ $po->items->sum('quantity_ordered') }} units
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="text-right">
-                                    <div class="font-bold">₱{{ number_format($po->total_amount, 2) }}</div>
-                                </div>
+                                <div class="font-medium">₱{{ number_format($po->total_amount, 2) }}</div>
                             </td>
                             <td>
                                 <x-mary-badge value="{{ ucfirst($po->status) }}"
-                                    class="badge-{{ $po->status === 'completed' ? 'success' : ($po->status === 'pending' ? 'warning' : ($po->status === 'partial' ? 'info' : ($po->status === 'cancelled' ? 'error' : 'ghost'))) }}" />
+                                    class="badge badge-{{ $this->getStatusColor($po->status) }}" />
                             </td>
                             <td>
-                                <div class="dropdown dropdown-end">
-                                    <div tabindex="0" role="button" class="btn btn-ghost btn-xs">
-                                        <x-heroicon-o-ellipsis-vertical class="w-4 h-4" />
+                                <div class="flex gap-1">
+                                    @if ($po->status === 'draft')
+                                        <x-mary-button icon="o-pencil" wire:click="editPO({{ $po->id }})"
+                                            class="btn-ghost btn-sm" tooltip="Edit" />
+                                        <x-mary-button icon="o-paper-airplane"
+                                            wire:click="submitPO({{ $po->id }})"
+                                            class="btn-ghost btn-sm text-success" tooltip="Submit"
+                                            wire:confirm="Submit this purchase order?" />
+                                    @endif
+
+                                    @if (in_array($po->status, ['pending', 'partial']))
+                                        <x-mary-button icon="o-cube"
+                                            wire:click="openReceiveModal({{ $po->id }})"
+                                            class="btn-ghost btn-sm text-info" tooltip="Receive Items" />
+                                    @endif
+
+                                    {{-- FIXED DROPDOWN WITH PROPER WIRE:CLICK --}}
+                                    <div class="dropdown dropdown-end">
+                                        <div tabindex="0" role="button" class="btn btn-ghost btn-xs">
+                                            <x-heroicon-o-ellipsis-vertical class="w-4 h-4" />
+                                        </div>
+                                        <ul tabindex="0"
+                                            class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
+                                            {{-- FIXED: Added proper wire:click for View Details --}}
+                                            <li><a wire:click="viewPODetails({{ $po->id }})" class="text-info">
+                                                    <x-heroicon-o-eye class="w-4 h-4" /> View Details</a></li>
+                                            <li><a wire:click="printPO({{ $po->id }})" class="text-info">
+                                                    <x-heroicon-o-printer class="w-4 h-4" /> Print PO</a></li>
+                                            @if ($po->status === 'draft')
+                                                <li><a wire:click="deletePO({{ $po->id }})" class="text-error"
+                                                        wire:confirm="Are you sure you want to delete this purchase order?">
+                                                        <x-heroicon-o-trash class="w-4 h-4" /> Delete</a></li>
+                                            @endif
+                                            @if (in_array($po->status, ['draft', 'pending']))
+                                                <li><a wire:click="cancelPO({{ $po->id }})" class="text-warning"
+                                                        wire:confirm="Are you sure you want to cancel this purchase order?">
+                                                        <x-heroicon-o-x-mark class="w-4 h-4" /> Cancel</a></li>
+                                            @endif
+                                            <li><a wire:click="duplicatePO({{ $po->id }})"
+                                                    class="text-secondary">
+                                                    <x-heroicon-o-document-duplicate class="w-4 h-4" /> Duplicate</a>
+                                            </li>
+                                        </ul>
                                     </div>
-                                    <ul tabindex="0"
-                                        class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
-                                        @if ($po->status === 'draft')
-                                            <li><a wire:click="editPO({{ $po->id }})">
-                                                    <x-heroicon-o-pencil class="w-4 h-4" /> Edit</a></li>
-                                            <li><a wire:click="submitPO({{ $po->id }})">
-                                                    <x-heroicon-o-paper-airplane class="w-4 h-4" /> Submit</a></li>
-                                        @endif
-                                        @if (in_array($po->status, ['pending', 'partial']))
-                                            <li><a wire:click="openReceiveModal({{ $po->id }})">
-                                                    <x-heroicon-o-truck class="w-4 h-4" /> Receive Items</a></li>
-                                        @endif
-                                        <li><a href="#" class="text-info">
-                                                <x-heroicon-o-eye class="w-4 h-4" /> View Details</a></li>
-                                        <li><a href="#" class="text-info">
-                                                <x-heroicon-o-printer class="w-4 h-4" /> Print PO</a></li>
-                                        @if (in_array($po->status, ['draft', 'pending']))
-                                            <li><a wire:click="cancelPO({{ $po->id }})"
-                                                    wire:confirm="Are you sure?" class="text-error">
-                                                    <x-heroicon-o-x-mark class="w-4 h-4" /> Cancel</a></li>
-                                        @endif
-                                    </ul>
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="text-center">
-                                <div class="py-8">
-                                    <x-heroicon-o-document-text class="w-12 h-12 mx-auto text-gray-400" />
-                                    <p class="mt-2 text-gray-500">No purchase orders found</p>
+                            <td colspan="9" class="text-center py-8">
+                                <div class="flex flex-col items-center">
+                                    <x-heroicon-o-clipboard-document-list class="w-12 h-12 text-gray-400 mb-2" />
+                                    <p class="text-gray-500">No purchase orders found</p>
+                                    <x-mary-button label="Create First Purchase Order" wire:click="openModal"
+                                        class="mt-4 btn-primary" />
                                 </div>
                             </td>
                         </tr>
@@ -142,117 +150,123 @@
                 </tbody>
             </table>
         </div>
-
-        {{-- Pagination --}}
-        <div class="mt-4">
-            {{ $purchaseOrders->links() }}
-        </div>
     </x-mary-card>
 
-    {{-- Create/Edit PO Modal --}}
-    <x-mary-modal wire:model="showModal" title="{{ $editMode ? 'Edit Purchase Order' : 'Create Purchase Order' }}"
-        subtitle="Manage purchase order details and items">
+    {{-- Pagination --}}
+    <div class="mt-6">
+        {{ $purchaseOrders->links() }}
+    </div>
 
+    {{-- Create/Edit Purchase Order Modal --}}
+    <x-mary-modal wire:model="showModal" title="{{ $editMode ? 'Edit Purchase Order' : 'Create Purchase Order' }}"
+        box-class="max-w-6xl">
         <div class="space-y-6">
             {{-- Basic Information --}}
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <x-mary-select label="Supplier" :options="$suppliers->map(fn($s) => ['value' => $s->id, 'label' => $s->name])" wire:model="supplier_id" placeholder="Select supplier"
-                    option-value="value" option-label="label" />
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <x-mary-select label="Supplier *" :options="$suppliers" wire:model="supplier_id" option-value="id"
+                    option-label="name" placeholder="Select supplier" />
 
-                <x-mary-select label="Warehouse" :options="$warehouses->map(fn($w) => ['value' => $w->id, 'label' => $w->name])" wire:model="warehouse_id"
-                    placeholder="Select warehouse" option-value="value" option-label="label" />
+                <x-mary-select label="Warehouse *" :options="$warehouses" wire:model="warehouse_id" option-value="id"
+                    option-label="name" placeholder="Select warehouse" />
 
-                <div class="flex items-center">
-                    <!-- Placeholder for future features -->
-                </div>
+                <x-mary-input label="Order Date *" wire:model="order_date" type="date" />
+
+                <x-mary-input label="Expected Date *" wire:model="expected_date" type="date" />
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
-                <x-mary-input label="Order Date" wire:model="order_date" type="date" />
-                <x-mary-input label="Expected Delivery" wire:model="expected_date" type="date" />
-            </div>
+            <x-mary-textarea label="Notes" wire:model="notes"
+                placeholder="Additional notes for this purchase order" />
 
             {{-- Items Section --}}
             <div>
                 <div class="flex items-center justify-between mb-4">
-                    <h4 class="text-lg font-semibold">Order Items</h4>
-                    <x-mary-button icon="o-plus" wire:click="addItem" class="btn-sm btn-primary">
-                        Add Item
-                    </x-mary-button>
+                    <h4 class="text-lg font-semibold">Items</h4>
+                    <x-mary-button label="Add Item" wire:click="addItem" class="btn-outline btn-sm"
+                        icon="o-plus" />
                 </div>
 
                 @if (count($items) > 0)
-                    <div class="space-y-3">
-                        @foreach ($items as $index => $item)
-                            <div class="p-4 border rounded-lg bg-base-200">
-                                <div class="grid items-end grid-cols-5 gap-3">
-                                    <x-mary-select label="Product" :options="$products->map(
-                                        fn($p) => ['value' => $p->id, 'label' => $p->name . ' (' . $p->sku . ')'],
-                                    )" option-value="value"
-                                        option-label="label" wire:model="items.{{ $index }}.product_id"
-                                        placeholder="Select product" />
-
-                                    <x-mary-input label="Quantity" wire:model="items.{{ $index }}.quantity"
-                                        type="number" min="1" />
-
-                                    <x-mary-input label="Unit Cost" wire:model="items.{{ $index }}.unit_cost"
-                                        type="number" step="0.01" />
-
-                                    <div class="text-center">
-                                        <label class="block mb-1 text-sm font-medium">Total</label>
-                                        <div class="font-bold">
-                                            ₱{{ number_format(($item['quantity'] ?? 0) * ($item['unit_cost'] ?? 0), 2) }}
-                                        </div>
-                                    </div>
-
-                                    <x-mary-button icon="o-trash" wire:click="removeItem({{ $index }})"
-                                        class="btn-ghost btn-sm text-error" />
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-
-                    {{-- Total --}}
-                    <div class="p-4 mt-4 rounded-lg bg-primary/10">
-                        <div class="text-right">
-                            <span class="text-lg font-bold">
-                                Total:
-                                ₱{{ number_format(collect($items)->sum(fn($item) => ($item['quantity'] ?? 0) * ($item['unit_cost'] ?? 0)), 2) }}
-                            </span>
-                        </div>
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Cost</th>
+                                    <th>Total</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($items as $index => $item)
+                                    <tr>
+                                        <td class="w-1/2">
+                                            <x-mary-select :options="$products"
+                                                wire:model="items.{{ $index }}.product_id" option-value="id"
+                                                option-label="name" placeholder="Select product" />
+                                        </td>
+                                        <td>
+                                            <x-mary-input wire:model="items.{{ $index }}.quantity"
+                                                type="number" min="1" />
+                                        </td>
+                                        <td>
+                                            <x-mary-input wire:model="items.{{ $index }}.unit_cost"
+                                                type="number" step="0.01" min="0" />
+                                        </td>
+                                        <td>
+                                            <div class="font-medium">
+                                                ₱{{ number_format(($item['quantity'] ?? 0) * ($item['unit_cost'] ?? 0), 2) }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <x-mary-button icon="o-trash"
+                                                wire:click="removeItem({{ $index }})"
+                                                class="btn-ghost btn-sm text-error" />
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr class="font-bold">
+                                    <td colspan="3" class="text-right">Total Amount:</td>
+                                    <td>₱{{ number_format(collect($items)->sum(fn($item) => ($item['quantity'] ?? 0) * ($item['unit_cost'] ?? 0)), 2) }}
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
                 @else
                     <div class="py-8 text-center border-2 border-gray-300 border-dashed rounded-lg">
-                        <x-heroicon-o-plus class="w-12 h-12 mx-auto text-gray-400" />
-                        <p class="mt-2 text-gray-500">No items added</p>
-                        <x-mary-button label="Add First Item" wire:click="addItem" class="mt-3 btn-primary" />
+                        <x-heroicon-o-cube class="w-12 h-12 mx-auto text-gray-400" />
+                        <p class="mt-2 text-gray-500">No items added yet</p>
+                        <x-mary-button label="Add First Item" wire:click="addItem" class="mt-4 btn-primary" />
                     </div>
                 @endif
             </div>
-
-            {{-- Notes --}}
-            <x-mary-textarea label="Notes" wire:model="notes" placeholder="Additional notes or instructions"
-                rows="3" />
         </div>
 
         <x-slot:actions>
             <x-mary-button label="Cancel" wire:click="$set('showModal', false)" />
-            <x-mary-button label="{{ $editMode ? 'Update PO' : 'Save as Draft' }}" wire:click="save"
-                class="btn-primary" :disabled="count($items) === 0" />
+            <x-mary-button label="{{ $editMode ? 'Update' : 'Create' }}" wire:click="save" class="btn-primary" />
         </x-slot:actions>
     </x-mary-modal>
 
-    {{-- Receiving Modal --}}
-    <x-mary-modal wire:model="showReceiveModal" title="Receive Items" subtitle="PO: {{ $selectedPO?->po_number }}">
-
+    {{-- Receive Items Modal --}}
+    <x-mary-modal wire:model="showReceiveModal" title="Receive Items - {{ $selectedPO?->po_number }}"
+        box-class="max-w-4xl">
         @if ($selectedPO)
             <div class="space-y-4">
                 <div class="p-4 rounded-lg bg-info/10">
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div><strong>Supplier:</strong> {{ $selectedPO->supplier->name }}</div>
-                        <div><strong>Expected:</strong> {{ $selectedPO->expected_date->format('M d, Y') }}</div>
-                        <div><strong>Warehouse:</strong> {{ $selectedPO->warehouse->name }}</div>
-                        <div><strong>Status:</strong> {{ ucfirst($selectedPO->status) }}</div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="text-sm text-gray-600">Supplier:</div>
+                            <div class="font-medium">{{ $selectedPO->supplier->name }}</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-600">Warehouse:</div>
+                            <div class="font-medium">{{ $selectedPO->warehouse->name }}</div>
+                        </div>
                     </div>
                 </div>
 
@@ -262,7 +276,7 @@
                             <tr>
                                 <th>Product</th>
                                 <th>Ordered</th>
-                                <th>Received</th>
+                                <th>Previously Received</th>
                                 <th>Pending</th>
                                 <th>Receiving Now</th>
                             </tr>
@@ -270,18 +284,14 @@
                         <tbody>
                             @foreach ($receivingItems as $index => $item)
                                 <tr>
-                                    <td>
-                                        <div class="font-medium">{{ $item['product_name'] }}</div>
-                                    </td>
-                                    <td class="text-center">{{ $item['quantity_ordered'] }}</td>
-                                    <td class="text-center">{{ $item['quantity_received'] }}</td>
-                                    <td class="font-bold text-center text-warning">{{ $item['quantity_pending'] }}
-                                    </td>
+                                    <td>{{ $item['product_name'] }}</td>
+                                    <td>{{ $item['quantity_ordered'] }}</td>
+                                    <td>{{ $item['quantity_received'] }}</td>
+                                    <td>{{ $item['quantity_pending'] }}</td>
                                     <td>
                                         <x-mary-input
                                             wire:model="receivingItems.{{ $index }}.receiving_quantity"
-                                            type="number" min="0" max="{{ $item['quantity_pending'] }}"
-                                            class="input-sm" />
+                                            type="number" min="0" max="{{ $item['quantity_pending'] }}" />
                                     </td>
                                 </tr>
                             @endforeach
@@ -292,8 +302,161 @@
 
             <x-slot:actions>
                 <x-mary-button label="Cancel" wire:click="$set('showReceiveModal', false)" />
-                <x-mary-button label="Process Receiving" wire:click="processReceiving" class="btn-success" />
+                <x-mary-button label="Process Receiving" wire:click="processReceiving" class="btn-primary" />
             </x-slot:actions>
         @endif
+    </x-mary-modal>
+
+    {{-- View Purchase Order Details Modal --}}
+    <x-mary-modal wire:model="showDetailsModal" title="Purchase Order Details"
+        subtitle="{{ $viewingPO?->po_number }} - {{ $viewingPO?->supplier?->name }}" box-class="max-w-7xl">
+        @if ($viewingPO)
+            <div class="space-y-6">
+                {{-- Header Information --}}
+                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    {{-- Basic Info --}}
+                    <x-mary-card title="Basic Information">
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="font-medium">PO Number:</span>
+                                <span>{{ $viewingPO->po_number }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-medium">Status:</span>
+                                <x-mary-badge value="{{ ucfirst($viewingPO->status) }}"
+                                    class="badge badge-{{ $this->getStatusColor($viewingPO->status) }}" />
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-medium">Order Date:</span>
+                                <span>{{ $viewingPO->order_date->format('M d, Y') }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-medium">Expected Date:</span>
+                                <span>{{ $viewingPO->expected_date?->format('M d, Y') ?? 'Not set' }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-medium">Requested By:</span>
+                                <span>{{ $viewingPO->requestedBy?->name }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-medium">Total Amount:</span>
+                                <span
+                                    class="font-bold text-lg">₱{{ number_format($viewingPO->total_amount, 2) }}</span>
+                            </div>
+                        </div>
+                    </x-mary-card>
+
+                    {{-- Supplier & Warehouse Info --}}
+                    <x-mary-card title="Supplier & Warehouse">
+                        <div class="space-y-4">
+                            <div>
+                                <h5 class="font-medium mb-2">Supplier Information</h5>
+                                <div class="space-y-1 text-sm">
+                                    <div><strong>Name:</strong> {{ $viewingPO->supplier->name }}</div>
+                                    @if ($viewingPO->supplier->contact_person)
+                                        <div><strong>Contact:</strong> {{ $viewingPO->supplier->contact_person }}</div>
+                                    @endif
+                                    @if ($viewingPO->supplier->email)
+                                        <div><strong>Email:</strong> {{ $viewingPO->supplier->email }}</div>
+                                    @endif
+                                    @if ($viewingPO->supplier->phone)
+                                        <div><strong>Phone:</strong> {{ $viewingPO->supplier->phone }}</div>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <div>
+                                <h5 class="font-medium mb-2">Warehouse</h5>
+                                <div class="text-sm">
+                                    <div><strong>Name:</strong> {{ $viewingPO->warehouse->name }}</div>
+                                    @if ($viewingPO->warehouse->address)
+                                        <div><strong>Address:</strong> {{ $viewingPO->warehouse->address }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </x-mary-card>
+                </div>
+
+                {{-- Items Details --}}
+                <x-mary-card title="Items ({{ $viewingPO->items->count() }} items)">
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Qty Ordered</th>
+                                    <th>Qty Received</th>
+                                    <th>Pending</th>
+                                    <th>Unit Cost</th>
+                                    <th>Total Cost</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($viewingPO->items as $item)
+                                    <tr>
+                                        <td>
+                                            <div>
+                                                <div class="font-medium">{{ $item->product->name }}</div>
+                                                <div class="text-sm text-gray-500">{{ $item->product->sku }}</div>
+                                            </div>
+                                        </td>
+                                        <td>{{ $item->quantity_ordered }}</td>
+                                        <td>{{ $item->quantity_received }}</td>
+                                        <td>{{ $item->quantity_pending }}</td>
+                                        <td>₱{{ number_format($item->unit_cost, 2) }}</td>
+                                        <td>₱{{ number_format($item->total_cost, 2) }}</td>
+                                        <td>
+                                            @if ($item->quantity_received >= $item->quantity_ordered)
+                                                <x-mary-badge value="Complete" class="badge-success" />
+                                            @elseif ($item->quantity_received > 0)
+                                                <x-mary-badge value="Partial" class="badge-warning" />
+                                            @else
+                                                <x-mary-badge value="Pending" class="badge-error" />
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr class="font-bold">
+                                    <td colspan="5" class="text-right">Total:</td>
+                                    <td>₱{{ number_format($viewingPO->items->sum('total_cost'), 2) }}</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </x-mary-card>
+
+                {{-- Actions --}}
+                <x-mary-card title="Actions">
+                    <div class="flex flex-wrap gap-2">
+                        @if ($viewingPO->status === 'draft')
+                            <x-mary-button label="Edit PO" icon="o-pencil" wire:click="editPO({{ $viewingPO->id }})"
+                                class="btn-outline" />
+                            <x-mary-button label="Submit PO" icon="o-paper-airplane"
+                                wire:click="submitPO({{ $viewingPO->id }})" class="btn-primary" />
+                        @endif
+
+                        @if (in_array($viewingPO->status, ['pending', 'partial']))
+                            <x-mary-button label="Receive Items" icon="o-cube"
+                                wire:click="openReceiveModal({{ $viewingPO->id }})" class="btn-success" />
+                        @endif
+
+                        <x-mary-button label="Print PO" icon="o-printer" wire:click="printPO({{ $viewingPO->id }})"
+                            class="btn-outline" />
+
+                        <x-mary-button label="Duplicate PO" icon="o-document-duplicate"
+                            wire:click="duplicatePO({{ $viewingPO->id }})" class="btn-outline" />
+                    </div>
+                </x-mary-card>
+            </div>
+        @endif
+
+        <x-slot:actions>
+            <x-mary-button label="Close" wire:click="$set('showDetailsModal', false)" class="btn-primary" />
+        </x-slot:actions>
     </x-mary-modal>
 </div>

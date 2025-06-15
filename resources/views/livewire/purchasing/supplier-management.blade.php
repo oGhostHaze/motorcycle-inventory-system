@@ -1,6 +1,6 @@
 <div>
     {{-- Page Header --}}
-    <x-mary-header title="Supplier Management" subtitle="Manage suppliers and product relationships" separator>
+    <x-mary-header title="Supplier Management" subtitle="Manage supplier information and relationships" separator>
         <x-slot:middle class="!justify-end">
             <x-mary-input placeholder="Search suppliers..." wire:model.live.debounce="search" clearable
                 icon="o-magnifying-glass" />
@@ -13,13 +13,26 @@
     </x-mary-header>
 
     {{-- Filters --}}
-    <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-4">
-        <x-mary-select placeholder="All Countries" :options="$filterOptions['countries']" wire:model.live="countryFilter"
+    <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-5">
+        <x-mary-select placeholder="All Countries" :options="$countries->map(fn($c) => ['value' => $c, 'label' => $c])" wire:model.live="countryFilter"
             option-value="value" option-label="label" />
-        <x-mary-select placeholder="All Status" :options="$filterOptions['statuses']" wire:model.live="statusFilter" option-value="value"
+
+        <x-mary-select placeholder="All Status" :options="[
+            ['value' => '', 'label' => 'All Status'],
+            ['value' => '1', 'label' => 'Active'],
+            ['value' => '0', 'label' => 'Inactive'],
+        ]" wire:model.live="statusFilter" option-value="value"
             option-label="label" />
-        <x-mary-select placeholder="All Ratings" :options="$filterOptions['ratings']" wire:model.live="ratingFilter" option-value="value"
+
+        <x-mary-select placeholder="All Ratings" :options="[
+            ['value' => '', 'label' => 'All Ratings'],
+            ['value' => '4', 'label' => '4+ Stars'],
+            ['value' => '3', 'label' => '3+ Stars'],
+            ['value' => '2', 'label' => '2+ Stars'],
+            ['value' => '1', 'label' => '1+ Stars'],
+        ]" wire:model.live="ratingFilter" option-value="value"
             option-label="label" />
+
         <x-mary-button icon="o-x-mark" wire:click="clearFilters" class="btn-ghost">
             Clear Filters
         </x-mary-button>
@@ -28,67 +41,57 @@
     {{-- Suppliers Grid --}}
     <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         @forelse($suppliers as $supplier)
-            <x-mary-card class="h-full">
-                <div class="flex items-start justify-between mb-4">
-                    <div class="flex items-center space-x-3">
-                        <div class="p-3 rounded-lg {{ $supplier->is_active ? 'bg-primary/10' : 'bg-gray-300' }}">
-                            <x-heroicon-o-building-office-2
-                                class="w-8 h-8 {{ $supplier->is_active ? 'text-primary' : 'text-gray-500' }}" />
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-semibold">{{ $supplier->name }}</h3>
-                            <x-mary-badge value="{{ $supplier->is_active ? 'Active' : 'Inactive' }}"
-                                class="badge-{{ $supplier->is_active ? 'success' : 'error' }} badge-sm" />
-                        </div>
+            <x-mary-card class="h-full transition-all duration-200 hover:shadow-lg">
+                {{-- Supplier Header --}}
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold">{{ $supplier->name }}</h3>
+                        @if ($supplier->contact_person)
+                            <p class="text-sm text-gray-600">{{ $supplier->contact_person }}</p>
+                        @endif
                     </div>
-
-                    <div class="dropdown dropdown-end">
-                        <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
-                            <x-heroicon-o-ellipsis-vertical class="w-4 h-4" />
-                        </div>
-                        <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
-                            <li><a wire:click="editSupplier({{ $supplier->id }})">
-                                    <x-heroicon-o-pencil class="w-4 h-4" /> Edit</a></li>
-                            <li><a wire:click="openProductsModal({{ $supplier->id }})">
-                                    <x-heroicon-o-cube class="w-4 h-4" /> Manage Products</a></li>
-                            <li><a wire:click="toggleStatus({{ $supplier->id }})">
-                                    <x-heroicon-o-{{ $supplier->is_active ? 'x-mark' : 'check' }} class="w-4 h-4" />
-                                    {{ $supplier->is_active ? 'Deactivate' : 'Activate' }}</a></li>
-                            <li><a wire:click="deleteSupplier({{ $supplier->id }})" wire:confirm="Are you sure?"
-                                    class="text-error">
-                                    <x-heroicon-o-trash class="w-4 h-4" /> Delete</a></li>
-                        </ul>
+                    <div class="flex gap-1">
+                        <x-mary-button icon="o-pencil" wire:click="editSupplier({{ $supplier->id }})"
+                            class="btn-ghost btn-sm" tooltip="Edit" />
+                        <x-mary-button icon="o-cube" wire:click="openProductsModal({{ $supplier->id }})"
+                            class="btn-ghost btn-sm" tooltip="Manage Products" />
+                        <x-mary-dropdown>
+                            <x-slot:trigger>
+                                <x-mary-button icon="o-ellipsis-vertical" class="btn-ghost btn-sm" />
+                            </x-slot:trigger>
+                            <x-mary-menu-item title="Toggle Status" wire:click="toggleStatus({{ $supplier->id }})" />
+                            <x-mary-menu-item title="Delete" wire:click="deleteSupplier({{ $supplier->id }})"
+                                wire:confirm="Are you sure you want to delete this supplier?" />
+                        </x-mary-dropdown>
                     </div>
                 </div>
 
-                {{-- Contact Information --}}
-                <div class="mb-4 space-y-2">
-                    @if ($supplier->contact_person)
-                        <div class="flex items-center space-x-2">
-                            <x-heroicon-o-user class="w-4 h-4 text-gray-500" />
-                            <span class="text-sm">{{ $supplier->contact_person }}</span>
-                        </div>
-                    @endif
+                {{-- Status Badge --}}
+                <div class="mb-3">
+                    <x-mary-badge value="{{ $supplier->is_active ? 'Active' : 'Inactive' }}"
+                        class="{{ $supplier->is_active ? 'badge-success' : 'badge-error' }}" />
+                </div>
 
+                {{-- Contact Information --}}
+                <div class="mb-4 space-y-1">
                     @if ($supplier->email)
-                        <div class="flex items-center space-x-2">
-                            <x-heroicon-o-envelope class="w-4 h-4 text-gray-500" />
-                            <span class="text-sm">{{ $supplier->email }}</span>
+                        <div class="flex items-center text-sm text-gray-600">
+                            <x-heroicon-o-envelope class="w-4 h-4 mr-2" />
+                            <span>{{ $supplier->email }}</span>
                         </div>
                     @endif
 
                     @if ($supplier->phone)
-                        <div class="flex items-center space-x-2">
-                            <x-heroicon-o-phone class="w-4 h-4 text-gray-500" />
-                            <span class="text-sm">{{ $supplier->phone }}</span>
+                        <div class="flex items-center text-sm text-gray-600">
+                            <x-heroicon-o-phone class="w-4 h-4 mr-2" />
+                            <span>{{ $supplier->phone }}</span>
                         </div>
                     @endif
 
                     @if ($supplier->city || $supplier->country)
-                        <div class="flex items-center space-x-2">
-                            <x-heroicon-o-map-pin class="w-4 h-4 text-gray-500" />
-                            <span
-                                class="text-sm">{{ $supplier->city }}{{ $supplier->city && $supplier->country ? ', ' : '' }}{{ $supplier->country }}</span>
+                        <div class="flex items-center text-sm text-gray-600">
+                            <x-heroicon-o-map-pin class="w-4 h-4 mr-2" />
+                            <span>{{ $supplier->city ? $supplier->city . ', ' : '' }}{{ $supplier->country }}</span>
                         </div>
                     @endif
                 </div>
@@ -123,15 +126,17 @@
 
                 {{-- Notes --}}
                 @if ($supplier->notes)
-                    <div class="p-3 text-sm rounded-lg bg-base-200">
+                    <div class="p-3 text-sm rounded-lg bg-base-200 mb-4">
                         <div class="text-gray-600">{{ Str::limit($supplier->notes, 100) }}</div>
                     </div>
                 @endif
 
-                {{-- Quick Actions --}}
+                {{-- Quick Actions - FIXED WITH WIRE:CLICK --}}
                 <div class="flex gap-2 mt-4">
-                    <x-mary-button label="Create PO" class="flex-1 btn-outline btn-sm" />
-                    <x-mary-button label="View Orders" class="flex-1 btn-outline btn-sm" />
+                    <x-mary-button label="Create PO" wire:click="createPurchaseOrder({{ $supplier->id }})"
+                        class="flex-1 btn-outline btn-sm" icon="o-plus" />
+                    <x-mary-button label="View Orders" wire:click="viewOrders({{ $supplier->id }})"
+                        class="flex-1 btn-outline btn-sm" icon="o-eye" />
                 </div>
             </x-mary-card>
         @empty
@@ -153,137 +158,206 @@
     </div>
 
     {{-- Create/Edit Supplier Modal --}}
-    <x-mary-modal wire:model="showModal" title="{{ $editMode ? 'Edit Supplier' : 'Create New Supplier' }}"
-        subtitle="Manage supplier information and details">
-
+    <x-mary-modal wire:model="showModal" title="{{ $editMode ? 'Edit Supplier' : 'Create Supplier' }}"
+        box-class="max-w-2xl">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {{-- Basic Information --}}
-            <div class="space-y-4 md:col-span-2">
-                <h4 class="text-lg font-semibold">Basic Information</h4>
-            </div>
-
-            <x-mary-input label="Supplier Name" wire:model="name" placeholder="Enter supplier name" />
-            <x-mary-input label="Contact Person" wire:model="contact_person" placeholder="Primary contact" />
-
-            <x-mary-input label="Email Address" wire:model="email" placeholder="supplier@example.com" />
-            <x-mary-input label="Phone Number" wire:model="phone" placeholder="Contact number" />
-
-            {{-- Address Information --}}
-            <div class="space-y-4 md:col-span-2">
-                <h4 class="text-lg font-semibold">Address Information</h4>
-            </div>
-
-            <x-mary-textarea label="Address" wire:model="address" placeholder="Complete address" rows="2"
-                class="md:col-span-2" />
-            <x-mary-input label="City" wire:model="city" placeholder="City" />
-            <x-mary-input label="Country" wire:model="country" placeholder="Country" />
-
-            {{-- Performance Information --}}
-            <div class="space-y-4 md:col-span-2">
-                <h4 class="text-lg font-semibold">Performance Information</h4>
-            </div>
-
+            <x-mary-input label="Supplier Name *" wire:model="name" placeholder="Enter supplier name" />
+            <x-mary-input label="Contact Person" wire:model="contact_person" placeholder="Enter contact person" />
+            <x-mary-input label="Email" wire:model="email" type="email" placeholder="Enter email address" />
+            <x-mary-input label="Phone" wire:model="phone" placeholder="Enter phone number" />
+            <x-mary-input label="City" wire:model="city" placeholder="Enter city" />
+            <x-mary-input label="Country" wire:model="country" placeholder="Enter country" />
+            <x-mary-input label="Lead Time (Days)" wire:model="lead_time_days" type="number" min="1" />
             <x-mary-input label="Rating (1-5)" wire:model="rating" type="number" min="1" max="5"
-                step="0.1" placeholder="0.0" />
-            <x-mary-input label="Lead Time (Days)" wire:model="lead_time_days" type="number" min="1"
-                placeholder="0" />
-
-            <x-mary-textarea label="Notes" wire:model="notes" placeholder="Additional supplier notes"
-                rows="3" class="md:col-span-2" />
-
-            <div class="flex items-center md:col-span-2">
-                <x-mary-checkbox label="Active Supplier" wire:model="is_active" />
-            </div>
+                step="0.1" />
         </div>
+
+        <x-mary-textarea label="Address" wire:model="address" placeholder="Enter full address" />
+        <x-mary-textarea label="Notes" wire:model="notes" placeholder="Additional notes about supplier" />
+
+        <x-mary-checkbox label="Active" wire:model="is_active" />
 
         <x-slot:actions>
             <x-mary-button label="Cancel" wire:click="$set('showModal', false)" />
-            <x-mary-button label="{{ $editMode ? 'Update Supplier' : 'Create Supplier' }}" wire:click="save"
-                class="btn-primary" />
+            <x-mary-button label="{{ $editMode ? 'Update' : 'Create' }}" wire:click="save" class="btn-primary" />
         </x-slot:actions>
     </x-mary-modal>
 
-    {{-- Supplier Products Modal --}}
-    <x-mary-modal wire:model="showProductsModal" title="Manage Supplier Products"
-        subtitle="Associate products with {{ $selectedSupplier?->name }}" box-class="w-11/12 max-w-5xl ">
-
+    {{-- NEW: View Orders Modal --}}
+    <x-mary-modal wire:model="showOrdersModal" title="Purchase Orders - {{ $selectedSupplier?->name }}"
+        box-class="max-w-6xl">
         @if ($selectedSupplier)
-            <div class="space-y-6">
-                {{-- Add New Product --}}
-                <div class="p-4 border rounded-lg bg-primary/5">
-                    <h4 class="mb-4 font-semibold">Add Product</h4>
-                    <div class="grid grid-cols-1 gap-3 md:grid-cols-6">
-                        <x-mary-select label="Product" :options="$products->map(fn($p) => ['value' => $p->id, 'label' => $p->name])" wire:model="selectedProduct"
-                            placeholder="Select product" option-value="value" option-label="label" />
+            <div class="space-y-4">
+                {{-- Search --}}
+                <x-mary-input label="Search Orders" wire:model.live.debounce.300ms="ordersSearch"
+                    icon="o-magnifying-glass" placeholder="Search by PO number" />
 
-                        <x-mary-input label="Supplier SKU" wire:model="supplier_sku" placeholder="SKU" />
-
-                        <x-mary-input label="Part Number" wire:model="supplier_part_number" placeholder="Part #" />
-
-                        <x-mary-input label="Price" wire:model="supplier_price" type="number" step="0.01"
-                            placeholder="0.00" />
-
-                        <x-mary-input label="Min Order" wire:model="minimum_order_quantity" type="number"
-                            placeholder="1" />
-
-                        <div class="flex items-end">
-                            <x-mary-button label="Add Product" wire:click="addProduct"
-                                class="w-full btn-primary btn-sm" />
-                        </div>
+                {{-- Orders Summary --}}
+                <div class="grid grid-cols-4 gap-4 p-4 rounded-lg bg-base-200">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-info">{{ count($supplierOrders) }}</div>
+                        <div class="text-sm text-gray-600">Total Orders</div>
                     </div>
-                    <div class="mt-3">
-                        <x-mary-checkbox label="Preferred Supplier for this product" wire:model="is_preferred" />
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-warning">
+                            {{ $supplierOrders->where('status', 'pending')->count() }}
+                        </div>
+                        <div class="text-sm text-gray-600">Pending</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-success">
+                            {{ $supplierOrders->where('status', 'completed')->count() }}
+                        </div>
+                        <div class="text-sm text-gray-600">Completed</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-primary">
+                            ₱{{ number_format($supplierOrders->sum('total_amount'), 2) }}
+                        </div>
+                        <div class="text-sm text-gray-600">Total Value</div>
                     </div>
                 </div>
 
-                {{-- Current Products --}}
+                {{-- Orders Table --}}
+                @if (count($supplierOrders) > 0)
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>PO Number</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Items</th>
+                                    <th>Amount</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($supplierOrders as $order)
+                                    <tr>
+                                        <td>
+                                            <div class="font-medium">{{ $order->po_number }}</div>
+                                            <div class="text-sm text-gray-500">by {{ $order->requestedBy->name }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div>{{ $order->order_date->format('M d, Y') }}</div>
+                                            @if ($order->expected_date)
+                                                <div class="text-sm text-gray-500">
+                                                    Expected: {{ $order->expected_date->format('M d, Y') }}
+                                                </div>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <x-mary-badge value="{{ ucfirst($order->status) }}"
+                                                class="badge badge-{{ $order->status_color }}" />
+                                        </td>
+                                        <td>{{ $order->items->count() }} items</td>
+                                        <td>₱{{ number_format($order->total_amount, 2) }}</td>
+                                        <td>
+                                            <x-mary-button label="View"
+                                                wire:click="goToPurchaseOrder({{ $order->id }})"
+                                                class="btn-sm btn-outline" />
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="py-8 text-center border-2 border-gray-300 border-dashed rounded-lg">
+                        <x-heroicon-o-clipboard-document-list class="w-12 h-12 mx-auto text-gray-400" />
+                        <p class="mt-2 text-gray-500">No purchase orders found</p>
+                        <x-mary-button label="Create First Purchase Order"
+                            wire:click="createPurchaseOrder({{ $selectedSupplier->id }})" class="mt-4 btn-primary" />
+                    </div>
+                @endif
+            </div>
+        @endif
+
+        <x-slot:actions>
+            <x-mary-button label="Close" wire:click="$set('showOrdersModal', false)" class="btn-primary" />
+        </x-slot:actions>
+    </x-mary-modal>
+
+    {{-- Manage Products Modal (existing functionality) --}}
+    <x-mary-modal wire:model="showProductsModal" title="Manage Products - {{ $selectedSupplier?->name }}"
+        box-class="max-w-6xl">
+        @if ($selectedSupplier)
+            <div class="space-y-6">
+                {{-- Add Product Form --}}
+                <div class="p-4 rounded-lg bg-base-100 border">
+                    <h4 class="mb-4 font-semibold">Add Product to Supplier</h4>
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <x-mary-select label="Product" :options="$products" wire:model="selectedProduct"
+                            option-value="id" option-label="name" placeholder="Select a product" />
+                        <x-mary-input label="Supplier SKU" wire:model="supplier_sku" placeholder="Supplier's SKU" />
+                        <x-mary-input label="Part Number" wire:model="supplier_part_number"
+                            placeholder="Supplier's part number" />
+                    </div>
+                    <div class="grid grid-cols-1 gap-4 mt-4 md:grid-cols-4">
+                        <x-mary-input label="Supplier Price" wire:model="supplier_price" type="number"
+                            step="0.01" min="0" placeholder="0.00" />
+                        <x-mary-input label="Min Order Qty" wire:model="minimum_order_quantity" type="number"
+                            min="1" placeholder="1" />
+                        <x-mary-input label="Lead Time (Days)" wire:model="product_lead_time_days" type="number"
+                            min="1" placeholder="Auto from supplier" />
+                        <x-mary-checkbox label="Preferred Supplier" wire:model="is_preferred" />
+                    </div>
+                    <div class="mt-4">
+                        <x-mary-button label="Add Product" wire:click="addProduct" class="btn-primary" />
+                    </div>
+                </div>
+
+                {{-- Products List --}}
                 <div>
-                    <h4 class="mb-4 font-semibold">Current Products ({{ count($supplierProducts) }})</h4>
+                    <h4 class="mb-3 font-semibold">Associated Products ({{ count($supplierProducts) }})</h4>
                     @if (count($supplierProducts) > 0)
-                        <div class="min-h-screen overflow-x-auto">
-                            <table class="table h-full table-zebra table-sm">
+                        <div class="overflow-x-auto">
+                            <table class="table table-zebra table-sm">
                                 <thead>
                                     <tr>
                                         <th>Product</th>
                                         <th>Supplier SKU</th>
                                         <th>Part Number</th>
                                         <th>Price</th>
-                                        <th>Min Order</th>
+                                        <th>Min Qty</th>
                                         <th>Lead Time</th>
                                         <th>Preferred</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($supplierProducts as $supplierProduct)
+                                    @foreach ($supplierProducts as $item)
                                         <tr>
                                             <td>
-                                                <div class="font-medium">
-                                                    {{ $supplierProduct['product']['name'] ?? 'Unknown Product' }}
-                                                </div>
-                                                <div class="text-xs text-gray-500">
-                                                    {{ $supplierProduct['product']['sku'] ?? '' }}</div>
+                                                <div class="font-medium">{{ $item['product']['name'] }}</div>
+                                                <div class="text-sm text-gray-500">{{ $item['product']['sku'] }}</div>
                                             </td>
-                                            <td>{{ $supplierProduct['supplier_sku'] ?? '-' }}</td>
-                                            <td>{{ $supplierProduct['supplier_part_number'] ?? '-' }}</td>
-                                            <td>₱{{ number_format($supplierProduct['supplier_price'] ?? 0, 2) }}</td>
-                                            <td class="text-center">
-                                                {{ $supplierProduct['minimum_order_quantity'] ?? 1 }}</td>
-                                            <td class="text-center">{{ $supplierProduct['lead_time_days'] ?? '-' }}
-                                                days</td>
-                                            <td class="text-center">
-                                                <x-mary-button
-                                                    icon="o-{{ $supplierProduct['is_preferred'] ? 'star' : 'star' }}"
-                                                    wire:click="togglePreferred({{ $supplierProduct['id'] }})"
-                                                    class="btn-ghost btn-xs {{ $supplierProduct['is_preferred'] ? 'text-yellow-500' : 'text-gray-400' }}"
-                                                    tooltip="{{ $supplierProduct['is_preferred'] ? 'Preferred Supplier' : 'Set as Preferred' }}" />
+                                            <td>{{ $item['supplier_sku'] ?: '-' }}</td>
+                                            <td>{{ $item['supplier_part_number'] ?: '-' }}</td>
+                                            <td>₱{{ number_format($item['supplier_price'], 2) }}</td>
+                                            <td>{{ $item['minimum_order_quantity'] ?: '-' }}</td>
+                                            <td>{{ $item['lead_time_days'] ?: '-' }} days</td>
+                                            <td>
+                                                @if ($item['is_preferred'])
+                                                    <x-mary-badge value="Yes" class="badge-success" />
+                                                @else
+                                                    <x-mary-button label="Set"
+                                                        wire:click="togglePreferred({{ $item['id'] }})"
+                                                        class="btn-ghost btn-xs" />
+                                                @endif
                                             </td>
                                             <td>
                                                 <div class="flex gap-1">
-                                                    <x-mary-button icon="o-pencil" class="btn-ghost btn-xs text-info"
-                                                        tooltip="Edit Product Details" />
+                                                    @if ($item['is_preferred'])
+                                                        <x-mary-button icon="o-star"
+                                                            wire:click="togglePreferred({{ $item['id'] }})"
+                                                            class="btn-ghost btn-xs text-warning"
+                                                            tooltip="Remove as Preferred" />
+                                                    @endif
                                                     <x-mary-button icon="o-trash"
-                                                        wire:click="removeSupplierProduct({{ $supplierProduct['id'] }})"
+                                                        wire:click="removeSupplierProduct({{ $item['id'] }})"
                                                         wire:confirm="Remove this product from supplier?"
                                                         class="btn-ghost btn-xs text-error"
                                                         tooltip="Remove Product" />
