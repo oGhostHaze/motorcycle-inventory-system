@@ -347,6 +347,9 @@ class PointOfSale extends Component
 
             // Create sale items and update inventory
             foreach ($this->cartItems as $item) {
+
+                $product = Product::find($item['product_id']);
+
                 // Create sale item
                 SaleItem::create([
                     'sale_id' => $sale->id,
@@ -356,6 +359,7 @@ class PointOfSale extends Component
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['price'],
                     'total_price' => $item['subtotal'],
+                    'cost_price' => $product->cost_price ?? 0, // Include cost price for profit calculation
                 ]);
 
                 // Update inventory
@@ -796,6 +800,8 @@ class PointOfSale extends Component
 
             // Create sale items
             foreach ($this->cartItems as $item) {
+                $product = Product::find($item['product_id']);
+
                 SaleItem::create([
                     'sale_id' => $heldSale->id,
                     'product_id' => $item['product_id'],
@@ -804,6 +810,7 @@ class PointOfSale extends Component
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['price'],
                     'total_price' => $item['subtotal'],
+                    'cost_price' => $product->cost_price ?? 0, // Include cost price for profit calculation
                 ]);
             }
 
