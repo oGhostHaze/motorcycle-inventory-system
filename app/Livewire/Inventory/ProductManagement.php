@@ -37,10 +37,7 @@ class ProductManagement extends Component
     public $cost_price = 0.00;
     public $selling_price = 0.00;
     public $wholesale_price = null;
-    public $weight = null;
-    public $color = '';
-    public $size = '';
-    public $material = '';
+
     public $warranty_months = 0;
     public $track_serial = false;
     public $track_warranty = false;
@@ -64,6 +61,11 @@ class ProductManagement extends Component
     // Inventory fields for new products
     public $warehouseStock = [];
 
+    // For searchable dropdowns
+    public $categoriesSearchable;
+    public $subcategoriesSearchable;
+    public $brandsSearchable;
+
     protected $rules = [
         'name' => 'required|string|max:255',
         'sku' => 'required|string|max:100|unique:products,sku',
@@ -78,6 +80,7 @@ class ProductManagement extends Component
     public function mount()
     {
         $this->loadWarehouses();
+        $this->loadSearchableOptions();
     }
 
     public function loadWarehouses()
@@ -90,6 +93,44 @@ class ProductManagement extends Component
                 'quantity' => 0,
                 'location' => '',
             ];
+        }
+    }
+
+    public function loadSearchableOptions()
+    {
+        // Load categories for searchable dropdown
+        $this->categoriesSearchable = Category::where('is_active', true)
+            ->withCount('products')
+            ->orderBy('name')
+            ->get();
+
+        // Load brands for searchable dropdown
+        $this->brandsSearchable = ProductBrand::where('is_active', true)
+            ->withCount('products')
+            ->orderBy('name')
+            ->get();
+
+        // Load subcategories based on selected category
+        $this->loadSubcategories();
+    }
+
+    public function updatedCategoryId()
+    {
+        // Reset subcategory when category changes
+        $this->subcategory_id = null;
+        $this->loadSubcategories();
+    }
+
+    public function loadSubcategories()
+    {
+        if ($this->category_id) {
+            $this->subcategoriesSearchable = Subcategory::where('category_id', $this->category_id)
+                ->where('is_active', true)
+                ->withCount('products')
+                ->orderBy('name')
+                ->get();
+        } else {
+            $this->subcategoriesSearchable = collect();
         }
     }
 
@@ -166,6 +207,7 @@ class ProductManagement extends Component
         $this->showModal = true;
         $this->resetValidation();
         $this->loadWarehouses();
+        $this->loadSearchableOptions();
     }
 
     public function editProduct(Product $product)
@@ -186,10 +228,6 @@ class ProductManagement extends Component
         $this->cost_price = $product->cost_price;
         $this->selling_price = $product->selling_price;
         $this->wholesale_price = $product->wholesale_price;
-        $this->weight = $product->weight;
-        $this->color = $product->color ?? '';
-        $this->size = $product->size ?? '';
-        $this->material = $product->material ?? '';
         $this->warranty_months = $product->warranty_months;
         $this->track_serial = $product->track_serial;
         $this->track_warranty = $product->track_warranty;
@@ -210,8 +248,36 @@ class ProductManagement extends Component
             ];
         }
 
+        // Load searchable options and include selected items
+        $this->loadSearchableOptionsForEdit();
+
         $this->showModal = true;
         $this->resetValidation();
+    }
+
+    private function loadSearchableOptionsForEdit()
+    {
+        // Ensure selected options are included in searchable lists
+        $selectedCategory = $this->category_id ? Category::find($this->category_id) : null;
+        $selectedBrand = $this->product_brand_id ? ProductBrand::find($this->product_brand_id) : null;
+
+        $this->categoriesSearchable = Category::where('is_active', true)
+            ->withCount('products')
+            ->orderBy('name')
+            ->get()
+            ->when($selectedCategory, function ($collection) use ($selectedCategory) {
+                return $collection->merge(collect([$selectedCategory]))->unique('id');
+            });
+
+        $this->brandsSearchable = ProductBrand::where('is_active', true)
+            ->withCount('products')
+            ->orderBy('name')
+            ->get()
+            ->when($selectedBrand, function ($collection) use ($selectedBrand) {
+                return $collection->merge(collect([$selectedBrand]))->unique('id');
+            });
+
+        $this->loadSubcategories();
     }
 
     public function save()
@@ -236,10 +302,6 @@ class ProductManagement extends Component
                 'cost_price' => $this->cost_price,
                 'selling_price' => $this->selling_price,
                 'wholesale_price' => $this->wholesale_price,
-                'weight' => $this->weight,
-                'color' => $this->color,
-                'size' => $this->size,
-                'material' => $this->material,
                 'warranty_months' => $this->warranty_months,
                 'track_serial' => $this->track_serial,
                 'track_warranty' => $this->track_warranty,
@@ -266,59 +328,36 @@ class ProductManagement extends Component
                 $this->success('Product created successfully!');
             }
 
-            // Update inventory levels
-            foreach ($this->warehouseStock as $warehouseId => $stockData) {
-                if ($stockData['quantity'] > 0 || $this->editMode) {
+            // Save inventory for each warehouse
+            foreach ($this->warehouseStock as $warehouseId => $stock) {
+                if (!empty($stock['quantity']) || $stock['quantity'] === 0) {
                     Inventory::updateOrCreate(
                         [
                             'product_id' => $product->id,
                             'warehouse_id' => $warehouseId,
                         ],
                         [
-                            'quantity_on_hand' => $stockData['quantity'],
-                            'location' => $stockData['location'],
-                            'average_cost' => $this->cost_price,
+                            'quantity_on_hand' => $stock['quantity'],
+                            'location' => $stock['location'],
                         ]
                     );
                 }
             }
 
             $this->showModal = false;
-            $this->resetForm();
         } catch (\Exception $e) {
             $this->error('Error saving product: ' . $e->getMessage());
         }
     }
 
-    public function deleteProduct(Product $product)
-    {
-        try {
-            // Check if product has any sales or movements
-            if ($product->stockMovements()->exists()) {
-                $this->error('Cannot delete product with transaction history. Consider marking as discontinued instead.');
-                return;
-            }
-
-            $product->delete();
-            $this->success('Product deleted successfully!');
-        } catch (\Exception $e) {
-            $this->error('Error deleting product: ' . $e->getMessage());
-        }
-    }
-
-    public function updatedCategoryId()
-    {
-        $this->subcategory_id = '';
-    }
-
     public function generateSku()
     {
-        $this->sku = 'SKU-' . strtoupper(Str::random(8));
+        $this->sku = 'PRD-' . strtoupper(Str::random(8));
     }
 
     public function generateBarcode()
     {
-        $this->barcode = '8' . str_pad(mt_rand(1, 999999999999), 12, '0', STR_PAD_LEFT);
+        $this->barcode = str_pad(mt_rand(1, 999999999999), 12, '0', STR_PAD_LEFT);
     }
 
     public function viewProduct($productId)
@@ -363,10 +402,6 @@ class ProductManagement extends Component
             'cost_price',
             'selling_price',
             'wholesale_price',
-            'weight',
-            'color',
-            'size',
-            'material',
             'warranty_months',
             'track_serial',
             'track_warranty',

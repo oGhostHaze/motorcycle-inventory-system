@@ -428,12 +428,7 @@
                 @endif
 
                 {{-- Product Specifications --}}
-                @if (
-                    $selectedProduct->description ||
-                        $selectedProduct->weight ||
-                        $selectedProduct->color ||
-                        $selectedProduct->size ||
-                        $selectedProduct->material)
+                @if ($selectedProduct->description)
                     <div>
                         <h4 class="mb-3 text-lg font-semibold">Product Specifications</h4>
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -445,18 +440,6 @@
                             @endif
 
                             <div class="space-y-2">
-                                @if ($selectedProduct->weight)
-                                    <div><strong>Weight:</strong> {{ $selectedProduct->weight }} kg</div>
-                                @endif
-                                @if ($selectedProduct->color)
-                                    <div><strong>Color:</strong> {{ $selectedProduct->color }}</div>
-                                @endif
-                                @if ($selectedProduct->size)
-                                    <div><strong>Size:</strong> {{ $selectedProduct->size }}</div>
-                                @endif
-                                @if ($selectedProduct->material)
-                                    <div><strong>Material:</strong> {{ $selectedProduct->material }}</div>
-                                @endif
                                 @if ($selectedProduct->warranty_months)
                                     <div><strong>Warranty:</strong> {{ $selectedProduct->warranty_months }} months
                                     </div>

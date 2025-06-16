@@ -85,20 +85,7 @@ export default {
     },
 
     plugins: [
-        forms,
         typography,
         require("daisyui")
     ],
-
-    daisyui: {
-        themes: [
-            "light", "dark", "corporate", "cupcake",
-            "synthwave", "retro", "cyberpunk", "valentine"
-        ],
-        darkTheme: "dark",
-        base: true,
-        styled: true,
-        utils: true,
-        logs: false,
-    },
 };

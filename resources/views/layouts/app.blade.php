@@ -95,84 +95,7 @@
                     </div>
                 </x-mary-dropdown>
 
-                {{-- Theme Switcher --}}
-                <x-mary-dropdown>
-                    <x-slot:trigger>
-                        <x-mary-button icon="o-swatch" class="btn-ghost btn-sm" tooltip-bottom="Change Theme" />
-                    </x-slot:trigger>
-
-                    <div class="w-64 p-4">
-                        <div class="mb-3 text-sm font-semibold">Choose Theme</div>
-                        <div class="grid grid-cols-2 gap-2">
-                            {{-- Light Theme --}}
-                            <button onclick="document.documentElement.setAttribute('data-theme', 'light')"
-                                class="p-3 transition-colors border rounded-lg hover:border-primary group">
-                                <div class="w-full h-8 mb-2 rounded bg-gradient-to-r from-gray-100 to-white"></div>
-                                <div class="text-xs text-center group-hover:text-primary">Light</div>
-                            </button>
-
-                            {{-- Dark Theme --}}
-                            <button onclick="document.documentElement.setAttribute('data-theme', 'dark')"
-                                class="p-3 transition-colors border rounded-lg hover:border-primary group">
-                                <div class="w-full h-8 mb-2 rounded bg-gradient-to-r from-gray-800 to-black"></div>
-                                <div class="text-xs text-center group-hover:text-primary">Dark</div>
-                            </button>
-
-                            {{-- Cupcake Theme --}}
-                            <button onclick="document.documentElement.setAttribute('data-theme', 'cupcake')"
-                                class="p-3 transition-colors border rounded-lg hover:border-primary group">
-                                <div class="w-full h-8 mb-2 rounded bg-gradient-to-r from-pink-200 to-purple-200"></div>
-                                <div class="text-xs text-center group-hover:text-primary">Cupcake</div>
-                            </button>
-
-                            {{-- Corporate Theme --}}
-                            <button onclick="document.documentElement.setAttribute('data-theme', 'corporate')"
-                                class="p-3 transition-colors border rounded-lg hover:border-primary group">
-                                <div class="w-full h-8 mb-2 rounded bg-gradient-to-r from-blue-600 to-blue-800"></div>
-                                <div class="text-xs text-center group-hover:text-primary">Corporate</div>
-                            </button>
-
-                            {{-- Synthwave Theme --}}
-                            <button onclick="document.documentElement.setAttribute('data-theme', 'synthwave')"
-                                class="p-3 transition-colors border rounded-lg hover:border-primary group">
-                                <div class="w-full h-8 mb-2 rounded bg-gradient-to-r from-purple-600 to-pink-600"></div>
-                                <div class="text-xs text-center group-hover:text-primary">Synthwave</div>
-                            </button>
-
-                            {{-- Retro Theme --}}
-                            <button onclick="document.documentElement.setAttribute('data-theme', 'retro')"
-                                class="p-3 transition-colors border rounded-lg hover:border-primary group">
-                                <div class="w-full h-8 mb-2 rounded bg-gradient-to-r from-yellow-400 to-orange-400">
-                                </div>
-                                <div class="text-xs text-center group-hover:text-primary">Retro</div>
-                            </button>
-
-                            {{-- Cyberpunk Theme --}}
-                            <button onclick="document.documentElement.setAttribute('data-theme', 'cyberpunk')"
-                                class="p-3 transition-colors border rounded-lg hover:border-primary group">
-                                <div class="w-full h-8 mb-2 rounded bg-gradient-to-r from-yellow-400 to-pink-500"></div>
-                                <div class="text-xs text-center group-hover:text-primary">Cyberpunk</div>
-                            </button>
-
-                            {{-- Valentine Theme --}}
-                            <button onclick="document.documentElement.setAttribute('data-theme', 'valentine')"
-                                class="p-3 transition-colors border rounded-lg hover:border-primary group">
-                                <div class="w-full h-8 mb-2 rounded bg-gradient-to-r from-pink-300 to-red-300"></div>
-                                <div class="text-xs text-center group-hover:text-primary">Valentine</div>
-                            </button>
-                        </div>
-
-                        {{-- Auto Theme Toggle --}}
-                        <div class="pt-3 mt-4 border-t">
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" class="toggle toggle-sm"
-                                    onchange="toggleAutoTheme(this.checked)" />
-                                <span class="text-xs">Auto (System)</span>
-                            </label>
-                        </div>
-                    </div>
-                </x-mary-dropdown>
-
+                <x-mary-theme-toggle class="btn btn-circle btn-ghost" />
                 {{-- Quick Actions --}}
                 <x-mary-dropdown>
                     <x-slot:trigger>
@@ -373,60 +296,7 @@
 
     {{-- Theme Switching Script --}}
     <script>
-        // Theme management
-        function toggleAutoTheme(enabled) {
-            if (enabled) {
-                // Follow system preference
-                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    document.documentElement.setAttribute('data-theme', 'dark');
-                } else {
-                    document.documentElement.setAttribute('data-theme', 'light');
-                }
-                localStorage.setItem('theme-auto', 'true');
-                localStorage.removeItem('theme');
-            } else {
-                localStorage.setItem('theme-auto', 'false');
-            }
-        }
-
-        // Save theme preference
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check for saved theme or auto setting
-            const savedTheme = localStorage.getItem('theme');
-            const autoTheme = localStorage.getItem('theme-auto') === 'true';
-
-            if (autoTheme) {
-                toggleAutoTheme(true);
-            } else if (savedTheme) {
-                document.documentElement.setAttribute('data-theme', savedTheme);
-            }
-
-            // Save theme when changed
-            const observer = new MutationObserver(function(mutations) {
-                mutations.forEach(function(mutation) {
-                    if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
-                        const currentTheme = document.documentElement.getAttribute('data-theme');
-                        if (localStorage.getItem('theme-auto') !== 'true') {
-                            localStorage.setItem('theme', currentTheme);
-                        }
-                    }
-                });
-            });
-
-            observer.observe(document.documentElement, {
-                attributes: true,
-                attributeFilter: ['data-theme']
-            });
-
-            // Listen for system theme changes
-            if (window.matchMedia) {
-                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
-                    if (localStorage.getItem('theme-auto') === 'true') {
-                        document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
-                    }
-                });
-            }
-        });
+        localStorage.theme = "light";
     </script>
 </body>
 

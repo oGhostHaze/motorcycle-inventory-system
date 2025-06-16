@@ -31,7 +31,7 @@
                     <div class="flex items-center space-x-3">
                         @if ($category->icon)
                             <div class="p-2 rounded-lg bg-primary/10">
-                                <x-icon name="{{ $category->icon }}" class="w-6 h-6 text-primary" />
+                                <x-mary-icon name="{{ $category->icon }}" class="w-6 h-6 text-primary" />
                             </div>
                         @else
                             <div class="p-2 rounded-lg bg-primary/10">

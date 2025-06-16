@@ -1,135 +1,103 @@
+{{-- Enhanced Product Management Form with MaryUI Choices --}}
 <div>
-    {{-- Page Header --}}
-    <x-mary-header title="Product Management" subtitle="Manage your inventory products" separator>
-        <x-slot:middle class="!justify-end">
-            <x-mary-input placeholder="Search products..." wire:model.live.debounce="search" clearable
-                icon="o-magnifying-glass" />
-        </x-slot:middle>
-        <x-slot:actions>
-            <x-mary-button icon="o-plus" class="btn-primary" @click="$wire.openModal()">
-                Add Product
-            </x-mary-button>
-        </x-slot:actions>
-    </x-mary-header>
+    {{-- Header Section --}}
+    <div class="flex flex-col gap-4 mb-6 md:flex-row md:items-center md:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold">Product Management</h1>
+            <p class="text-gray-600">Manage your product inventory and information</p>
+        </div>
+        <x-mary-button label="Add Product" wire:click="openModal" class="btn-primary" icon="o-plus" />
+    </div>
 
-    {{-- Filters --}}
-    <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-5">
-        <x-mary-select placeholder="All Categories" :options="$filterOptions['categories']" wire:model.live="categoryFilter"
+    {{-- Filters Section --}}
+    <div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-2 lg:grid-cols-6">
+        <x-mary-input label="Search" wire:model.live.debounce.300ms="search" placeholder="Search products..."
+            icon="o-magnifying-glass" />
+
+        <x-mary-select label="Category" :options="$filterOptions['categories']" wire:model.live="categoryFilter" placeholder="All Categories"
             option-value="value" option-label="label" />
-        <x-mary-select placeholder="All Brands" :options="$filterOptions['brands']" wire:model.live="brandFilter" option-value="value"
-            option-label="label" />
-        <x-mary-select placeholder="All Status" :options="$filterOptions['statuses']" wire:model.live="statusFilter" option-value="value"
-            option-label="label" />
-        <x-mary-select placeholder="All Stock" :options="$filterOptions['stock']" wire:model.live="stockFilter" option-value="value"
-            option-label="label" />
-        <x-mary-button icon="o-x-mark" wire:click="clearFilters" class="btn-ghost">
-            Clear Filters
-        </x-mary-button>
+
+        <x-mary-select label="Brand" :options="$filterOptions['brands']" wire:model.live="brandFilter" placeholder="All Brands"
+            option-value="value" option-label="label" />
+
+        <x-mary-select label="Status" :options="$filterOptions['statuses']" wire:model.live="statusFilter" placeholder="All Status"
+            option-value="value" option-label="label" />
+
+        <x-mary-select label="Stock" :options="$filterOptions['stock']" wire:model.live="stockFilter" placeholder="All Stock"
+            option-value="value" option-label="label" />
+
+        <div class="flex items-end">
+            <x-mary-button label="Clear" wire:click="clearFilters" class="w-full btn-outline" />
+        </div>
     </div>
 
     {{-- Products Table --}}
-    <x-mary-card>
-        <div class="min-h-screen overflow-x-auto">
-            <table class="table h-full table-zebra">
-                <thead>
+    <div class="overflow-x-auto">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Brand</th>
+                    <th>Stock</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($products as $product)
                     <tr>
-                        <th>Product</th>
-                        <th>Category</th>
-                        <th>Brand</th>
-                        <th>Price</th>
-                        <th>Stock</th>
-                        <th>Status</th>
-                        <th class="w-32">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($products as $product)
-                        <tr>
-                            <td>
-                                <div>
-                                    <div class="font-bold">{{ $product->name }}</div>
-                                    <div class="text-sm opacity-50">
-                                        SKU: {{ $product->sku }}
-                                        @if ($product->barcode)
-                                            • Barcode: {{ $product->barcode }}
-                                        @endif
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                <span class="text-sm">{{ $product->category?->name }}</span>
+                        <td>
+                            <div>
+                                <div class="font-semibold">{{ $product->name }}</div>
+                                <div class="text-sm text-gray-500">{{ $product->sku }}</div>
+                            </div>
+                        </td>
+                        <td>
+                            <div>
+                                <div>{{ $product->category?->name ?? 'No Category' }}</div>
                                 @if ($product->subcategory)
-                                    <div class="text-xs text-gray-500">{{ $product->subcategory->name }}</div>
+                                    <div class="text-sm text-gray-500">{{ $product->subcategory->name }}</div>
                                 @endif
-                            </td>
-                            <td>
-                                <span class="text-sm">{{ $product->brand?->name ?? 'No Brand' }}</span>
-                            </td>
-                            <td>
-                                <div class="text-sm">
-                                    <div class="font-semibold">₱{{ number_format($product->selling_price, 2) }}</div>
-                                    <div class="text-xs text-gray-500">Cost:
-                                        ₱{{ number_format($product->cost_price, 2) }}</div>
-                                </div>
-                            </td>
-                            <td>
-                                @php
-                                    $totalStock = $product->total_stock;
-                                    $isLowStock = $product->isLowStock();
-                                @endphp
-                                <div class="text-sm">
-                                    <div
-                                        class="font-semibold {{ $totalStock == 0 ? 'text-error' : ($isLowStock ? 'text-warning' : 'text-success') }}">
-                                        {{ $totalStock }} units
-                                    </div>
-                                    @if ($isLowStock && $totalStock > 0)
-                                        <x-mary-badge value="Low Stock" class="badge-warning badge-xs" />
-                                    @elseif($totalStock == 0)
-                                        <x-mary-badge value="Out of Stock" class="badge-error badge-xs" />
-                                    @endif
-                                </div>
-                            </td>
-                            <td>
-                                <x-mary-badge value="{{ ucfirst($product->status) }}"
-                                    class="badge-{{ $product->status === 'active' ? 'success' : ($product->status === 'inactive' ? 'warning' : 'error') }}" />
-                            </td>
-                            <td>
-                                <div class="flex gap-1">
-                                    <x-mary-button icon="o-eye" wire:click="viewProduct({{ $product->id }})"
-                                        class="btn-ghost btn-xs" tooltip="View Details" />
-                                    <x-mary-button icon="o-pencil" wire:click="editProduct({{ $product->id }})"
-                                        class="btn-ghost btn-xs" tooltip="Edit" />
-                                    <x-mary-button icon="o-trash" wire:click="deleteProduct({{ $product->id }})"
-                                        wire:confirm="Are you sure you want to delete this product?"
-                                        class="btn-ghost btn-xs text-error" tooltip="Delete" />
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="text-center">
-                                <div class="py-8">
-                                    <x-heroicon-o-cube class="w-12 h-12 mx-auto text-gray-400" />
-                                    <p class="mt-2 text-gray-500">No products found</p>
-                                </div>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+                            </div>
+                        </td>
+                        <td>{{ $product->brand?->name ?? 'No Brand' }}</td>
+                        <td>
+                            <x-mary-badge value="{{ $product->total_stock ?? 0 }}"
+                                class="badge-{{ ($product->total_stock ?? 0) > 0 ? 'success' : 'error' }}" />
+                        </td>
+                        <td>₱{{ number_format($product->selling_price, 2) }}</td>
+                        <td>
+                            <x-mary-badge value="{{ ucfirst($product->status) }}"
+                                class="badge-{{ $product->status === 'active' ? 'success' : 'warning' }}" />
+                        </td>
+                        <td>
+                            <div class="flex gap-2">
+                                <x-mary-button icon="o-eye" wire:click="viewProduct({{ $product->id }})"
+                                    class="btn-ghost btn-sm" tooltip="View" />
+                                <x-mary-button icon="o-pencil" wire:click="editProduct({{ $product->id }})"
+                                    class="btn-ghost btn-sm" tooltip="Edit" />
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="7" class="text-center text-gray-500">No products found</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
 
-        {{-- Pagination --}}
-        <div class="mt-4">
-            {{ $products->links() }}
-        </div>
-    </x-mary-card>
+    {{-- Pagination --}}
+    <div class="mt-4">
+        {{ $products->links() }}
+    </div>
 
-    {{-- Create/Edit Modal --}}
+    {{-- Create/Edit Product Modal --}}
     <x-mary-modal wire:model="showModal" title="{{ $editMode ? 'Edit Product' : 'Create New Product' }}"
         subtitle="Manage product information and inventory" box-class="max-w-7xl">
-
-        {{-- Modal Header --}}
 
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
             {{-- Basic Information --}}
@@ -160,18 +128,107 @@
                 <x-mary-textarea label="Description" wire:model="description" placeholder="Product description"
                     rows="3" />
 
-                <div class="grid grid-cols-2 gap-3">
-                    <x-mary-select label="Category" :options="$categories" wire:model.live="category_id"
-                        placeholder="Select category" />
+                {{-- Enhanced Category Selection with Choices --}}
+                <div class="space-y-3">
+                    <x-mary-choices-offline label="Category *" wire:model.live="category_id" :options="$categoriesSearchable"
+                        placeholder="Search and select category..." searchable single clearable height="max-h-48"
+                        hint="Required field">
 
-                    @if ($subcategories->count() > 0)
-                        <x-mary-select label="Subcategory" :options="$subcategories" wire:model="subcategory_id"
-                            placeholder="Select subcategory" />
+                        {{-- Custom item display --}}
+                        @scope('item', $category)
+                            <div class="flex items-center gap-3 p-2">
+                                <div class="flex-shrink-0">
+                                    @if ($category->icon ?? false)
+                                        <x-mary-icon :name="$category->icon" class="w-6 h-6 text-primary" />
+                                    @else
+                                        <x-mary-icon name="o-folder" class="w-6 h-6 text-primary" />
+                                    @endif
+                                </div>
+                                <div class="flex-1">
+                                    <div class="font-medium">{{ $category->name }}</div>
+                                    @if ($category->description)
+                                        <div class="text-sm text-gray-500">{{ $category->description }}</div>
+                                    @endif
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <x-mary-badge value="{{ $category->products_count ?? 0 }}"
+                                        class="badge-ghost badge-sm" />
+                                </div>
+                            </div>
+                        @endscope
+
+                        {{-- Custom selection display --}}
+                        @scope('selection', $category)
+                            {{ $category->name }}
+                        @endscope
+                    </x-mary-choices-offline>
+
+                    {{-- Enhanced Subcategory Selection --}}
+                    @if ($category_id && $subcategoriesSearchable && $subcategoriesSearchable->count() > 0)
+                        <x-mary-choices-offline label="Subcategory" wire:model="subcategory_id" :options="$subcategoriesSearchable"
+                            placeholder="Search and select subcategory..." searchable single clearable
+                            height="max-h-48" hint="Optional subcategory">
+
+                            {{-- Custom item display --}}
+                            @scope('item', $subcategory)
+                                <div class="flex items-center gap-3 p-2">
+                                    <div class="flex-shrink-0">
+                                        <x-mary-icon name="o-folder-open" class="w-5 h-5 text-secondary" />
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="font-medium">{{ $subcategory->name }}</div>
+                                        @if ($subcategory->description)
+                                            <div class="text-sm text-gray-500">{{ $subcategory->description }}</div>
+                                        @endif
+                                    </div>
+                                    <div class="flex-shrink-0">
+                                        <x-mary-badge value="{{ $subcategory->products_count ?? 0 }}"
+                                            class="badge-ghost badge-sm" />
+                                    </div>
+                                </div>
+                            @endscope
+
+                            {{-- Custom selection display --}}
+                            @scope('selection', $subcategory)
+                                {{ $subcategory->name }}
+                            @endscope
+                        </x-mary-choices-offline>
                     @endif
                 </div>
 
-                <x-mary-select label="Brand" :options="$brands" wire:model="product_brand_id"
-                    placeholder="Select brand" />
+                {{-- Enhanced Brand Selection with Choices --}}
+                <x-mary-choices-offline label="Brand" wire:model="product_brand_id" :options="$brandsSearchable"
+                    placeholder="Search and select brand..." searchable single clearable height="max-h-48"
+                    hint="Select product brand">
+
+                    {{-- Custom item display --}}
+                    @scope('item', $brand)
+                        <div class="flex items-center gap-3 p-2">
+                            <div class="flex-shrink-0">
+                                @if ($brand->logo ?? false)
+                                    <img src="{{ Storage::url($brand->logo) }}"
+                                        class="object-cover w-6 h-6 rounded-full" />
+                                @else
+                                    <x-mary-icon name="o-building-storefront" class="w-6 h-6 text-accent" />
+                                @endif
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-medium">{{ $brand->name }}</div>
+                                @if ($brand->description)
+                                    <div class="text-sm text-gray-500">{{ $brand->description }}</div>
+                                @endif
+                            </div>
+                            <div class="flex-shrink-0">
+                                <x-mary-badge value="{{ $brand->products_count ?? 0 }}" class="badge-ghost badge-sm" />
+                            </div>
+                        </div>
+                    @endscope
+
+                    {{-- Custom selection display --}}
+                    @scope('selection', $brand)
+                        {{ $brand->name }}
+                    @endscope
+                </x-mary-choices-offline>
             </div>
 
             {{-- Pricing & Details --}}
@@ -192,15 +249,7 @@
                         placeholder="0.00" />
                 </div>
 
-                <div class="grid grid-cols-3 gap-3">
-                    <x-mary-input label="Weight (kg)" wire:model="weight" type="number" step="0.001"
-                        placeholder="0.000" />
-                    <x-mary-input label="Color" wire:model="color" placeholder="Product color" />
-                    <x-mary-input label="Size" wire:model="size" placeholder="Product size" />
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <x-mary-input label="Material" wire:model="material" placeholder="Product material" />
+                <div class="grid grid-cols-1 gap-3">
                     <x-mary-input label="Warranty (months)" wire:model="warranty_months" type="number"
                         placeholder="0" />
                 </div>
@@ -269,7 +318,6 @@
         </x-slot:actions>
     </x-mary-modal>
 
-
     {{-- View Product Details Modal --}}
     <x-mary-modal wire:model="showViewModal" title="Product Details" subtitle="{{ $selectedProduct?->name }}"
         box-class="max-w-7xl">
@@ -321,29 +369,24 @@
                 </div>
 
                 {{-- Description & Specifications --}}
-                @if ($selectedProduct->description || $selectedProduct->specifications)
+                @if ($selectedProduct->description)
                     <div>
-                        <h4 class="mb-3 text-lg font-semibold">Description & Specifications</h4>
-                        @if ($selectedProduct->description)
-                            <div class="mb-3">
-                                <strong>Description:</strong>
-                                <p class="mt-1">{{ $selectedProduct->description }}</p>
-                            </div>
-                        @endif
-                        @if ($selectedProduct->specifications)
-                            <div>
-                                <strong>Specifications:</strong>
-                                <div class="mt-2 space-y-1">
-                                    @foreach ($selectedProduct->specifications as $key => $value)
-                                        <div class="flex justify-between p-2 rounded bg-base-200">
-                                            <span
-                                                class="font-medium">{{ ucfirst(str_replace('_', ' ', $key)) }}:</span>
-                                            <span>{{ $value }}</span>
-                                        </div>
-                                    @endforeach
+                        <h4 class="mb-3 text-lg font-semibold">Product Specifications</h4>
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            @if ($selectedProduct->description)
+                                <div>
+                                    <strong>Description:</strong>
+                                    <p class="mt-1 text-sm text-gray-600">{{ $selectedProduct->description }}</p>
                                 </div>
+                            @endif
+
+                            <div class="space-y-2">
+                                @if ($selectedProduct->warranty_months)
+                                    <div><strong>Warranty:</strong> {{ $selectedProduct->warranty_months }} months
+                                    </div>
+                                @endif
                             </div>
-                        @endif
+                        </div>
                     </div>
                 @endif
 
@@ -379,49 +422,36 @@
                     </div>
                 @endif
 
-                {{-- Recent Stock Movements --}}
-                @if ($selectedProduct->stockMovements->count() > 0)
-                    <div>
-                        <h4 class="mb-3 text-lg font-semibold">Recent Stock Movements</h4>
-                        <div class="overflow-x-auto">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Type</th>
-                                        <th>Quantity</th>
-                                        <th>User</th>
-                                        <th>Notes</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($selectedProduct->stockMovements as $movement)
-                                        <tr>
-                                            <td class="text-sm">{{ $movement->created_at->format('M d, H:i') }}</td>
-                                            <td>
-                                                <x-mary-badge value="{{ ucfirst($movement->type) }}"
-                                                    class="badge-{{ $movement->quantity_changed > 0 ? 'success' : 'error' }} badge-sm" />
-                                            </td>
-                                            <td
-                                                class="font-semibold {{ $movement->quantity_changed > 0 ? 'text-success' : 'text-error' }}">
-                                                {{ $movement->quantity_changed > 0 ? '+' : '' }}{{ $movement->quantity_changed }}
-                                            </td>
-                                            <td class="text-sm">{{ $movement->user?->name ?? 'System' }}</td>
-                                            <td class="text-xs">{{ Str::limit($movement->notes, 30) }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                {{-- Status & Tracking --}}
+                <div>
+                    <h4 class="mb-3 text-lg font-semibold">Status & Settings</h4>
+                    <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+                        <div>
+                            <strong>Status:</strong>
+                            <x-mary-badge value="{{ ucfirst($selectedProduct->status) }}"
+                                class="badge-{{ $selectedProduct->status === 'active' ? 'success' : 'warning' }}" />
+                        </div>
+                        <div>
+                            <strong>Serial Tracking:</strong>
+                            <x-mary-badge value="{{ $selectedProduct->track_serial ? 'Yes' : 'No' }}"
+                                class="badge-{{ $selectedProduct->track_serial ? 'success' : 'ghost' }}" />
+                        </div>
+                        <div>
+                            <strong>Warranty Tracking:</strong>
+                            <x-mary-badge value="{{ $selectedProduct->track_warranty ? 'Yes' : 'No' }}"
+                                class="badge-{{ $selectedProduct->track_warranty ? 'success' : 'ghost' }}" />
                         </div>
                     </div>
-                @endif
+                </div>
             </div>
+        @endif
 
-            <x-slot:actions>
-                <x-mary-button label="Close" wire:click="$set('showViewModal', false)" />
+        <x-slot:actions>
+            <x-mary-button label="Close" wire:click="$set('showViewModal', false)" />
+            @if ($selectedProduct)
                 <x-mary-button label="Edit Product" wire:click="editProduct({{ $selectedProduct->id }})"
                     class="btn-primary" />
-            </x-slot:actions>
-        @endif
+            @endif
+        </x-slot:actions>
     </x-mary-modal>
 </div>
