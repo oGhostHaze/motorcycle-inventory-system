@@ -213,7 +213,9 @@ class Product extends Model
         parent::boot();
 
         static::creating(function ($model) {
-            $model->slug = Str::slug($model->name);
+            if (empty($model->slug)) {
+                $model->slug = Str::slug($model->name);
+            }
             if (empty($model->sku)) {
                 $model->sku = 'SKU-' . strtoupper(Str::random(8));
             }
