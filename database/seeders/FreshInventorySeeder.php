@@ -190,7 +190,6 @@ class FreshInventorySeeder extends Seeder
                 'cost_price' => rand(100, 5000),
                 'selling_price' => rand(150, 7500),
                 'wholesale_price' => rand(120, 6000),
-                'weight' => rand(100, 5000) / 1000,
                 'warranty_months' => 12,
                 'min_stock_level' => rand(5, 25),
                 'max_stock_level' => rand(100, 500),
