@@ -187,9 +187,9 @@ class FreshInventorySeeder extends Seeder
                 'product_brand_id' => $brand->id,
                 'part_number' => 'PN-' . str_pad($counter, 6, '0', STR_PAD_LEFT),
                 'oem_number' => 'OEM-' . strtoupper($row['brand']) . '-' . $counter,
-                'cost_price' => rand(100, 5000),
-                'selling_price' => rand(150, 7500),
-                'wholesale_price' => rand(120, 6000),
+                'cost_price' => 0,
+                'selling_price' => 0,
+                'wholesale_price' => 0,
                 'warranty_months' => 12,
                 'min_stock_level' => rand(5, 25),
                 'max_stock_level' => rand(100, 500),
@@ -244,8 +244,8 @@ class FreshInventorySeeder extends Seeder
         $locations = $this->getShelfLocations();
 
         foreach ($products as $product) {
-            $onHand = rand(0, 100);
-            $reserved = rand(0, min(10, $onHand));
+            $onHand = 0;
+            $reserved = 0;
 
             Inventory::create([
                 'product_id' => $product->id,
