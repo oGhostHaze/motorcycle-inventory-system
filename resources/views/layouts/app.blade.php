@@ -37,28 +37,6 @@
 
         <x-slot:actions>
             <div class="flex items-center gap-2">
-                {{-- Search --}}
-                <x-mary-dropdown>
-                    <x-slot:trigger>
-                        <x-mary-button icon="o-magnifying-glass" class="btn-ghost btn-sm" tooltip-bottom="Search" />
-                    </x-slot:trigger>
-
-                    <div class="p-4 w-80">
-                        <x-mary-input placeholder="Search products, customers..." icon="o-magnifying-glass" />
-                        <div class="mt-3 text-xs text-gray-500">
-                            <div class="mb-2 font-medium">Quick Links:</div>
-                            <div class="space-y-1">
-                                <a href="{{ route('sales.pos') }}" class="block hover:text-primary">New Sale</a>
-                                <a href="{{ route('inventory.products') }}" class="block hover:text-primary">Add
-                                    Product</a>
-                                <a href="{{ route('inventory.stock-adjustments') }}"
-                                    class="block hover:text-primary">Stock
-                                    Adjustment</a>
-                            </div>
-                        </div>
-                    </div>
-                </x-mary-dropdown>
-
                 {{-- Notifications --}}
                 <x-mary-dropdown>
                     <x-slot:trigger>
@@ -198,8 +176,7 @@
                 {{-- Inventory Management - Admin, Manager, or Warehouse Staff --}}
                 @if ($isAdmin || $isManager || $isWarehouseStaff)
                     <x-mary-menu-sub title="Inventory" icon="o-cube">
-                        <x-mary-menu-item title="Products" icon="o-cube"
-                            link="{{ route('inventory.products') }}" />
+                        <x-mary-menu-item title="Products" icon="o-cube" link="{{ route('inventory.products') }}" />
                         <x-mary-menu-item title="Categories" icon="o-tag"
                             link="{{ route('inventory.categories') }}" />
                         <x-mary-menu-item title="Stock Levels" icon="o-chart-bar"
@@ -290,14 +267,10 @@
         </x-slot:content>
     </x-mary-main>
 
+    @stack('scripts')
     @stack('modals')
     @livewireScripts
     <x-mary-toast />
-
-    {{-- Theme Switching Script --}}
-    <script>
-        localStorage.theme = "light";
-    </script>
 </body>
 
 </html>

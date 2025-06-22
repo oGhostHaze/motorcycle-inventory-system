@@ -2,13 +2,15 @@
 
 namespace App\Livewire\Sales;
 
-use App\Models\Product;
 use App\Models\Customer;
+use App\Models\Inventory;
+use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
-use App\Models\Inventory;
-use App\Models\Warehouse;
 use App\Models\SalesShift;
+use App\Models\StockMovement;
+use App\Models\Warehouse;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
@@ -170,7 +172,10 @@ class PointOfSale extends Component
                 ->where(function ($query) {
                     $query->where('name', 'like', '%' . $this->searchProduct . '%')
                         ->orWhere('sku', 'like', '%' . $this->searchProduct . '%')
-                        ->orWhere('barcode', 'like', '%' . $this->searchProduct . '%');
+                        ->orWhere('barcode', 'like', '%' . $this->searchProduct . '%')
+                        ->orWhereHas('brand', function ($brandQuery) {
+                            $brandQuery->where('name', 'like', '%' . $this->searchProduct . '%');
+                        });
                 })
                 ->with(['inventory' => function ($query) {
                     $query->where('warehouse_id', $this->selectedWarehouse);
@@ -276,6 +281,9 @@ class PointOfSale extends Component
     public function clearCart()
     {
         $this->cartItems = [];
+        $this->discountType = null;
+        $this->discountValue = 0;
+        $this->discountAmount = 0;
         $this->updateCartTotals();
         $this->success('Cart cleared!');
     }
@@ -283,9 +291,47 @@ class PointOfSale extends Component
     public function updateCartTotals()
     {
         $this->subtotal = collect($this->cartItems)->sum('subtotal');
+
+        $this->recalculateDiscount();
         $this->taxAmount = $this->subtotal * $this->taxRate;
         $this->totalAmount = $this->subtotal + $this->taxAmount - $this->discountAmount;
         $this->calculateChange();
+    }
+
+    public function recalculateDiscount()
+    {
+        // Only recalculate if there's an active discount
+        if ($this->discountAmount > 0 && $this->discountValue > 0) {
+            if ($this->discountType === 'percentage') {
+                $this->discountAmount = $this->subtotal * ($this->discountValue / 100);
+            } else {
+                // For fixed discounts, ensure it doesn't exceed the subtotal
+                $this->discountAmount = min($this->discountValue, $this->subtotal);
+            }
+        }
+    }
+
+    public function applyDiscount()
+    {
+        $this->validate([
+            'discountType' => 'required|in:percentage,fixed',
+            'discountValue' => 'required|numeric|min:0',
+        ]);
+
+        if ($this->discountType === 'percentage' && $this->discountValue > 100) {
+            $this->error('Percentage discount cannot exceed 100%');
+            return;
+        }
+
+        if ($this->discountType === 'percentage') {
+            $this->discountAmount = $this->subtotal * ($this->discountValue / 100);
+        } else {
+            $this->discountAmount = min($this->discountValue, $this->subtotal);
+        }
+
+        $this->updateCartTotals();
+        $this->showDiscountModal = false;
+        $this->success('Discount applied successfully!');
     }
 
     public function updatedPaidAmount()
@@ -327,12 +373,47 @@ class PointOfSale extends Component
         }
 
         try {
-            // Create sale record with shift association
+            DB::beginTransaction();
+
+            // Check inventory WITHOUT locking - immediate response
+            $inventoryIssues = [];
+            $inventorySnapshots = [];
+
+            foreach ($this->cartItems as $item) {
+                $currentInventory = Inventory::where('product_id', $item['product_id'])
+                    ->where('warehouse_id', $this->selectedWarehouse)
+                    ->first();
+
+                $availableQty = $currentInventory ? $currentInventory->quantity_available : 0;
+
+                // Store current state for later verification
+                $inventorySnapshots[$item['product_id']] = [
+                    'current_quantity' => $currentInventory ? $currentInventory->quantity_on_hand : 0,
+                    'updated_at' => $currentInventory ? $currentInventory->updated_at : null
+                ];
+
+                if ($availableQty < $item['quantity']) {
+                    $inventoryIssues[] = [
+                        'product' => $item['name'],
+                        'requested' => $item['quantity'],
+                        'available' => $availableQty
+                    ];
+                }
+            }
+
+            // If insufficient stock, fail immediately
+            if (!empty($inventoryIssues)) {
+                DB::rollBack();
+                $this->handleInventoryConflict($inventoryIssues);
+                return;
+            }
+
+            // Create sale record
             $sale = Sale::create([
                 'customer_id' => $this->selectedCustomer,
                 'warehouse_id' => $this->selectedWarehouse,
                 'user_id' => auth()->id(),
-                'shift_id' => $this->currentShift->id, // Associate with current shift
+                'shift_id' => $this->currentShift->id,
                 'subtotal' => $this->subtotal,
                 'discount_amount' => $this->discountAmount,
                 'tax_amount' => $this->taxAmount,
@@ -345,12 +426,11 @@ class PointOfSale extends Component
                 'completed_at' => now(),
             ]);
 
-            // Create sale items and update inventory
+            // Update inventory with optimistic locking
             foreach ($this->cartItems as $item) {
-
                 $product = Product::find($item['product_id']);
 
-                // Create sale item
+                // Create sale item first
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $item['product_id'],
@@ -359,37 +439,47 @@ class PointOfSale extends Component
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['price'],
                     'total_price' => $item['subtotal'],
-                    'cost_price' => $product->cost_price ?? 0, // Include cost price for profit calculation
+                    'cost_price' => $product->cost_price ?? 0,
                 ]);
 
-                // Update inventory
-                $inventory = Inventory::where('product_id', $item['product_id'])
+                // Optimistic update with version check
+                $snapshot = $inventorySnapshots[$item['product_id']];
+
+                $updateResult = DB::table('inventories')
+                    ->where('product_id', $item['product_id'])
                     ->where('warehouse_id', $this->selectedWarehouse)
-                    ->first();
-
-                if ($inventory) {
-                    $oldQuantity = $inventory->quantity_on_hand;
-                    $newQuantity = $oldQuantity - $item['quantity'];
-
-                    $inventory->update(['quantity_on_hand' => $newQuantity]);
-
-                    // Create stock movement
-                    $inventory->product->stockMovements()->create([
-                        'warehouse_id' => $this->selectedWarehouse,
-                        'type' => 'sale',
-                        'quantity_before' => $oldQuantity,
-                        'quantity_changed' => -$item['quantity'],
-                        'quantity_after' => $newQuantity,
-                        'unit_cost' => $inventory->average_cost,
-                        'reference_id' => $sale->id,
-                        'reference_type' => Sale::class,
-                        'user_id' => auth()->id(),
-                        'notes' => 'Sale: ' . $sale->invoice_number,
+                    ->where('quantity_on_hand', $snapshot['current_quantity']) // Ensure quantity hasn't changed
+                    ->where('updated_at', $snapshot['updated_at']) // Ensure record hasn't been modified
+                    ->update([
+                        'quantity_on_hand' => $snapshot['current_quantity'] - $item['quantity'],
+                        'updated_at' => now()
                     ]);
+
+                // If update failed, someone else modified the inventory
+                if ($updateResult === 0) {
+                    DB::rollBack();
+                    $this->error('Inventory was modified by another user. Please refresh and try again.');
+                    $this->refreshCartInventory();
+                    return;
                 }
+
+                // Create stock movement
+                StockMovement::create([
+                    'product_id' => $item['product_id'],
+                    'warehouse_id' => $this->selectedWarehouse,
+                    'type' => 'sale',
+                    'quantity_before' => $snapshot['current_quantity'],
+                    'quantity_changed' => -$item['quantity'],
+                    'quantity_after' => $snapshot['current_quantity'] - $item['quantity'],
+                    'unit_cost' => $product->cost_price ?? 0,
+                    'reference_id' => $sale->id,
+                    'reference_type' => Sale::class,
+                    'user_id' => auth()->id(),
+                    'notes' => 'Sale: ' . $sale->invoice_number,
+                ]);
             }
 
-            // Update customer stats if customer selected
+            // Update customer stats
             if ($this->selectedCustomer) {
                 $customer = Customer::find($this->selectedCustomer);
                 $customer->increment('total_orders');
@@ -397,15 +487,84 @@ class PointOfSale extends Component
                 $customer->update(['last_purchase_at' => now()]);
             }
 
-            // Update shift totals
             $this->currentShift->calculateTotals();
+
+            DB::commit();
 
             $this->success('Sale completed successfully! Invoice: ' . $sale->invoice_number);
             $this->resetSale();
             $this->showPaymentModal = false;
         } catch (\Exception $e) {
+            DB::rollBack();
             $this->error('Error completing sale: ' . $e->getMessage());
         }
+    }
+
+    private function handleInventoryConflict($inventoryIssues)
+    {
+        $errorMessage = "❌ Insufficient inventory detected:\n\n";
+        foreach ($inventoryIssues as $issue) {
+            $errorMessage .= "• {$issue['product']}: Need {$issue['requested']}, Only {$issue['available']} available\n";
+        }
+        $errorMessage .= "\n🔄 Cart has been updated with current stock levels.";
+
+        $this->error($errorMessage);
+        $this->refreshCartInventory();
+    }
+
+    // Add this to your component to periodically check cart validity
+    public function validateCartItems()
+    {
+        $hasChanges = false;
+
+        foreach ($this->cartItems as $index => $item) {
+            $currentInventory = Inventory::where('product_id', $item['product_id'])
+                ->where('warehouse_id', $this->selectedWarehouse)
+                ->first();
+
+            $availableQty = $currentInventory ? $currentInventory->quantity_available : 0;
+
+            if ($item['quantity'] > $availableQty) {
+                $this->cartItems[$index]['quantity'] = max(0, $availableQty);
+                $this->cartItems[$index]['subtotal'] = $this->cartItems[$index]['quantity'] * $this->cartItems[$index]['price'];
+                $hasChanges = true;
+            }
+        }
+
+        if ($hasChanges) {
+            $this->cartItems = array_filter($this->cartItems, fn($item) => $item['quantity'] > 0);
+            $this->cartItems = array_values($this->cartItems);
+            $this->calculateTotals();
+            $this->warning('Cart updated due to inventory changes by other users.');
+        }
+    }
+
+    // Call this method periodically (e.g., every 30 seconds)
+
+    /**
+     * Refresh cart items with current inventory levels
+     */
+    private function refreshCartInventory()
+    {
+        foreach ($this->cartItems as $index => $item) {
+            $currentInventory = Inventory::where('product_id', $item['product_id'])
+                ->where('warehouse_id', $this->selectedWarehouse)
+                ->first();
+
+            $availableQty = $currentInventory ? $currentInventory->quantity_available : 0;
+
+            // Update cart item quantity if it exceeds available stock
+            if ($this->cartItems[$index]['quantity'] > $availableQty) {
+                $this->cartItems[$index]['quantity'] = max(0, $availableQty);
+                $this->cartItems[$index]['subtotal'] = $this->cartItems[$index]['quantity'] * $this->cartItems[$index]['price'];
+            }
+        }
+
+        // Remove items with zero quantity
+        $this->cartItems = array_filter($this->cartItems, fn($item) => $item['quantity'] > 0);
+        $this->cartItems = array_values($this->cartItems); // Re-index array
+
+        $this->calculateTotals();
     }
 
     public function resetSale()
@@ -453,7 +612,10 @@ class PointOfSale extends Component
 
         // Auto-open payment modal if total is less than or equal to quick cash amount
         if ($this->totalAmount <= $amount) {
+            $this->calculateChange();
             $this->showPaymentModal = true;
+        } else {
+            $this->error('Insufficient Payment', 'Set quick cash is less than the order`s total amount.');
         }
     }
 
@@ -726,31 +888,10 @@ class PointOfSale extends Component
         $this->showDiscountModal = true;
     }
 
-    public function applyDiscount()
-    {
-        $this->validate([
-            'discountType' => 'required|in:percentage,fixed',
-            'discountValue' => 'required|numeric|min:0',
-        ]);
-
-        if ($this->discountType === 'percentage' && $this->discountValue > 100) {
-            $this->error('Percentage discount cannot exceed 100%');
-            return;
-        }
-
-        if ($this->discountType === 'percentage') {
-            $this->discountAmount = $this->subtotal * ($this->discountValue / 100);
-        } else {
-            $this->discountAmount = min($this->discountValue, $this->subtotal);
-        }
-
-        $this->updateCartTotals();
-        $this->showDiscountModal = false;
-        $this->success('Discount applied successfully!');
-    }
-
     public function removeDiscount()
     {
+        $this->discountType = null;
+        $this->discountValue = 0;
         $this->discountAmount = 0;
         $this->updateCartTotals();
         $this->success('Discount removed!');
@@ -882,8 +1023,8 @@ class PointOfSale extends Component
 
                     $this->cartItems[$product->id] = [
                         'product_id' => $product->id,
-                        'name' => $item->product_name,
-                        'sku' => $item->product_sku,
+                        'name' => $product->name,
+                        'sku' => $product->sku,
                         'price' => $item->unit_price,
                         'quantity' => $item->quantity,
                         'available_stock' => $availableStock,

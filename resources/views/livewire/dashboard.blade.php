@@ -15,7 +15,7 @@
     </x-mary-header>
 
     {{-- Key Performance Stats - Enhanced with Profit Metrics --}}
-    <div class="grid grid-cols-1 gap-6 mb-8 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+    <div class="grid grid-cols-1 gap-6 mb-8 md:grid-cols-2 lg:grid-cols-4">
         {{-- Today's Sales --}}
         <x-mary-stat title="Today's Sales" description="Revenue today" value="₱{{ number_format($todaysSales, 2) }}"
             icon="o-currency-dollar" color="text-primary"
@@ -85,19 +85,19 @@
         {{-- Year Profit Overview --}}
         <x-mary-card title="Year Profit Overview" subtitle="{{ now()->format('Y') }} Performance" class="shadow-lg">
             <div class="space-y-3">
-                <div class="flex justify-between items-center">
+                <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Total Profit:</span>
                     <span class="text-lg font-bold text-success">₱{{ number_format($yearProfit, 2) }}</span>
                 </div>
-                <div class="flex justify-between items-center">
+                <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Revenue:</span>
-                    <span class="text-md font-semibold">₱{{ number_format($yearSales, 2) }}</span>
+                    <span class="font-semibold text-md">₱{{ number_format($yearSales, 2) }}</span>
                 </div>
-                <div class="flex justify-between items-center">
+                <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">COGS:</span>
                     <span class="text-md">₱{{ number_format($totalCostOfGoodsSold, 2) }}</span>
                 </div>
-                <div class="flex justify-between items-center pt-2 border-t">
+                <div class="flex items-center justify-between pt-2 border-t">
                     <span class="text-sm font-semibold">Profit Margin:</span>
                     <span
                         class="text-lg font-bold {{ $yearProfitMargin >= 30 ? 'text-success' : ($yearProfitMargin >= 15 ? 'text-warning' : 'text-error') }}">
@@ -110,17 +110,17 @@
         {{-- Average Transaction Metrics --}}
         <x-mary-card title="Transaction Metrics" subtitle="Average per sale" class="shadow-lg">
             <div class="space-y-3">
-                <div class="flex justify-between items-center">
+                <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Avg. Sale Value:</span>
                     <span
-                        class="text-md font-semibold">₱{{ number_format($yearSales > 0 && \App\Models\Sale::whereYear('created_at', now()->year)->where('status', 'completed')->count() > 0 ? $yearSales / \App\Models\Sale::whereYear('created_at', now()->year)->where('status', 'completed')->count() : 0, 2) }}</span>
+                        class="font-semibold text-md">₱{{ number_format($yearSales > 0 && \App\Models\Sale::whereYear('created_at', now()->year)->where('status', 'completed')->count() > 0 ? $yearSales / \App\Models\Sale::whereYear('created_at', now()->year)->where('status', 'completed')->count() : 0, 2) }}</span>
                 </div>
-                <div class="flex justify-between items-center">
+                <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Avg. Profit:</span>
                     <span
-                        class="text-md font-bold text-success">₱{{ number_format($averageTransactionProfit, 2) }}</span>
+                        class="font-bold text-md text-success">₱{{ number_format($averageTransactionProfit, 2) }}</span>
                 </div>
-                <div class="flex justify-between items-center">
+                <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Total Transactions:</span>
                     <span
                         class="text-md">{{ \App\Models\Sale::whereYear('created_at', now()->year)->where('status', 'completed')->count() }}</span>
@@ -131,15 +131,15 @@
         {{-- Inventory Value --}}
         <x-mary-card title="Inventory Overview" subtitle="Current stock value" class="shadow-lg">
             <div class="space-y-3">
-                <div class="flex justify-between items-center">
+                <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Total Products:</span>
-                    <span class="text-md font-semibold">{{ number_format($totalProducts) }}</span>
+                    <span class="font-semibold text-md">{{ number_format($totalProducts) }}</span>
                 </div>
-                <div class="flex justify-between items-center">
+                <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Inventory Value:</span>
                     <span class="text-lg font-bold text-info">₱{{ number_format($totalInventoryValue, 2) }}</span>
                 </div>
-                <div class="flex justify-between items-center">
+                <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Active Suppliers:</span>
                     <span class="text-md">{{ $totalSuppliers }}</span>
                 </div>
@@ -150,13 +150,13 @@
         <x-mary-card title="Quick Actions" subtitle="Common tasks" class="shadow-lg">
             <div class="space-y-2">
                 <x-mary-button label="New Sale" icon="o-plus" link="{{ route('sales.pos') }}"
-                    class="btn-primary btn-sm w-full" />
+                    class="w-full btn-primary btn-sm" />
                 <x-mary-button label="Add Product" icon="o-cube" link="{{ route('inventory.products') }}"
-                    class="btn-outline btn-sm w-full" />
+                    class="w-full btn-outline btn-sm" />
                 <x-mary-button label="Purchase Order" icon="o-clipboard-document-list"
-                    link="{{ route('purchasing.purchase-orders') }}" class="btn-outline btn-sm w-full" />
+                    link="{{ route('purchasing.purchase-orders') }}" class="w-full btn-outline btn-sm" />
                 <x-mary-button label="Stock Adjustment" icon="o-adjustments-horizontal"
-                    link="{{ route('inventory.stock-adjustments') }}" class="btn-outline btn-sm w-full" />
+                    link="{{ route('inventory.stock-adjustments') }}" class="w-full btn-outline btn-sm" />
             </div>
         </x-mary-card>
     </div>
@@ -372,7 +372,7 @@
                         @foreach ($lowStockProducts as $product)
                             <div class="flex items-center justify-between p-2 rounded bg-warning/10">
                                 <div>
-                                    <div class="font-bold text-sm">{{ $product->name }}</div>
+                                    <div class="text-sm font-bold">{{ $product->name }}</div>
                                     <div class="text-xs opacity-70">{{ $product->category->name ?? 'No Category' }}
                                     </div>
                                 </div>

@@ -50,26 +50,26 @@ class SalesHistory extends Component
 
         $filterOptions = [
             'statuses' => [
-                ['value' => '', 'label' => 'All Status'],
-                ['value' => 'draft', 'label' => 'Draft'],
-                ['value' => 'completed', 'label' => 'Completed'],
-                ['value' => 'cancelled', 'label' => 'Cancelled'],
-                ['value' => 'refunded', 'label' => 'Refunded'],
+                ['id' => '', 'name' => 'All Status'],
+                ['id' => 'draft', 'name' => 'Draft'],
+                ['id' => 'completed', 'name' => 'Completed'],
+                ['id' => 'cancelled', 'name' => 'Cancelled'],
+                ['id' => 'refunded', 'name' => 'Refunded'],
             ],
             'paymentMethods' => [
-                ['value' => '', 'label' => 'All Methods'],
-                ['value' => 'cash', 'label' => 'Cash'],
-                ['value' => 'card', 'label' => 'Credit/Debit Card'],
-                ['value' => 'gcash', 'label' => 'GCash'],
-                ['value' => 'bank_transfer', 'label' => 'Bank Transfer'],
+                ['id' => '', 'name' => 'All Methods'],
+                ['id' => 'cash', 'name' => 'Cash'],
+                ['id' => 'card', 'name' => 'Credit/Debit Card'],
+                ['id' => 'gcash', 'name' => 'GCash'],
+                ['id' => 'bank_transfer', 'name' => 'Bank Transfer'],
             ],
             'dates' => [
-                ['value' => '', 'label' => 'All Time'],
-                ['value' => 'today', 'label' => 'Today'],
-                ['value' => 'yesterday', 'label' => 'Yesterday'],
-                ['value' => 'week', 'label' => 'This Week'],
-                ['value' => 'month', 'label' => 'This Month'],
-                ['value' => 'custom', 'label' => 'Custom Range'],
+                ['id' => '', 'name' => 'All Time'],
+                ['id' => 'today', 'name' => 'Today'],
+                ['id' => 'yesterday', 'name' => 'Yesterday'],
+                ['id' => 'week', 'name' => 'This Week'],
+                ['id' => 'month', 'name' => 'This Month'],
+                ['id' => 'custom', 'name' => 'Custom Range'],
             ]
         ];
 

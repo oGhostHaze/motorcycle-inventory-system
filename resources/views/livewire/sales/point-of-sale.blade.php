@@ -77,8 +77,15 @@
                                         <div class="text-right">
                                             <div class="font-bold">₱{{ number_format($product['selling_price'], 2) }}
                                             </div>
-                                            <div class="text-sm text-gray-500">
-                                                Stock: {{ $product['inventory'][0]['quantity_available'] ?? 0 }}
+                                            @php
+                                                $stock = $product['inventory'][0]['quantity_available'] ?? 0;
+                                            @endphp
+                                            <div
+                                                class="text-sm {{ $stock <= 0 ? 'text-red-500 font-semibold' : 'text-gray-500' }}">
+                                                Stock: {{ $stock }}
+                                                @if ($stock <= 0)
+                                                    <span class="text-xs ml-1">(Out of Stock)</span>
+                                                @endif
                                             </div>
                                         </div>
                                     </div>
@@ -280,6 +287,7 @@
     </x-mary-modal>
 
     {{-- Payment Modal --}}
+    {{-- Enhanced Payment Modal with Additional Change Features --}}
     <x-mary-modal wire:model="showPaymentModal" title="Process Payment" subtitle="Complete the sale transaction">
         <div class="space-y-4">
             {{-- Order Summary --}}
@@ -318,20 +326,50 @@
 
             {{-- Payment Amount --}}
             <div class="space-y-2">
-                <x-mary-input label="Amount Received" wire:model.live="paidAmount" type="number" step="0.01" />
+                <x-mary-input label="Amount Received" wire:model.live="paidAmount" type="number" step="0.01"
+                    class="{{ $paidAmount < $totalAmount ? 'input-error' : ($changeAmount > 0 ? 'input-success' : '') }}" />
 
                 @if ($paymentMethod === 'cash')
-                    <div class="flex gap-2">
+                    <div class="flex gap-2 flex-wrap">
                         <x-mary-button label="Exact Amount" wire:click="setExactCash" class="btn-outline btn-sm" />
+                        {{-- Quick Cash Buttons --}}
+                        <x-mary-button label="₱{{ number_format(ceil($totalAmount / 100) * 100, 0) }}"
+                            wire:click="setQuickCash({{ ceil($totalAmount / 100) * 100 }})"
+                            class="btn-outline btn-sm" />
+                        <x-mary-button label="₱{{ number_format(ceil($totalAmount / 500) * 500, 0) }}"
+                            wire:click="setQuickCash({{ ceil($totalAmount / 500) * 500 }})"
+                            class="btn-outline btn-sm" />
+                        <x-mary-button label="₱{{ number_format(ceil($totalAmount / 1000) * 1000, 0) }}"
+                            wire:click="setQuickCash({{ ceil($totalAmount / 1000) * 1000 }})"
+                            class="btn-outline btn-sm" />
+                    </div>
+                @endif
+
+                {{-- Payment Status Indicator --}}
+                @if ($paidAmount > 0)
+                    <div class="text-sm">
+                        @if ($paidAmount < $totalAmount)
+                            <div class="text-error">
+                                ⚠️ Insufficient payment: ₱{{ number_format($totalAmount - $paidAmount, 2) }} remaining
+                            </div>
+                        @elseif ($paidAmount == $totalAmount)
+                            <div class="text-success">
+                                ✅ Exact payment received
+                            </div>
+                        @else
+                            <div class="text-info">
+                                💰 Overpayment: ₱{{ number_format($changeAmount, 2) }} change due
+                            </div>
+                        @endif
                     </div>
                 @endif
             </div>
 
-            {{-- Change Calculation --}}
+            {{-- Enhanced Change Calculation --}}
             @if ($changeAmount > 0)
-                <div class="p-3 border rounded-lg bg-success/10 border-success/20">
+                <div class="p-4 border rounded-lg bg-success/10 border-success/20">
                     <div class="text-center">
-                        <div class="text-lg font-bold text-success">
+                        <div class="text-2xl font-bold text-success mb-2">
                             Change: ₱{{ number_format($changeAmount, 2) }}
                         </div>
                     </div>
@@ -509,15 +547,38 @@
         </x-slot:actions>
     </x-mary-modal>
 
-    {{-- Discount Modal --}}
+    {{-- Enhanced Discount Modal (your existing structure with small additions) --}}
     <x-mary-modal wire:model="showDiscountModal" title="Apply Discount" subtitle="Add discount to the order">
         <div class="space-y-4">
+            {{-- Show current subtotal --}}
+            <div class="p-3 rounded-lg bg-base-200">
+                <div class="flex justify-between text-sm">
+                    <span>Current Subtotal:</span>
+                    <span class="font-semibold">₱{{ number_format($subtotal, 2) }}</span>
+                </div>
+            </div>
+
+            {{-- Show current discount if any --}}
+            @if ($discountAmount > 0)
+                <div class="p-3 border rounded-lg bg-warning/10 border-warning/20">
+                    <div class="text-sm">
+                        <div class="flex justify-between">
+                            <span>Current Discount:</span>
+                            <span class="font-semibold">
+                                {{ $discountType === 'percentage' ? $discountValue . '%' : '₱' . number_format($discountValue, 2) }}
+                                = -₱{{ number_format($discountAmount, 2) }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <x-mary-select label="Discount Type" :options="[
-                ['value' => 'percentage', 'label' => 'Percentage (%)'],
-                ['value' => 'fixed', 'label' => 'Fixed Amount (₱)'],
+                ['id' => 'percentage', 'name' => 'Percentage (%)'],
+                ['id' => 'fixed', 'name' => 'Fixed Amount (₱)'],
             ]" wire:model.live="discountType" />
 
-            <x-mary-input label="Discount Value" wire:model="discountValue" type="number" step="0.01"
+            <x-mary-input label="Discount Value" wire:model.live="discountValue" type="number" step="0.01"
                 placeholder="{{ $discountType === 'percentage' ? 'Enter percentage (e.g., 10)' : 'Enter amount (e.g., 100.00)' }}" />
 
             @if ($discountValue && is_numeric($discountValue))
@@ -529,12 +590,24 @@
                         </div>
                     </div>
                 </div>
+
+                {{-- Validation warnings --}}
+                @if ($discountType === 'percentage' && $discountValue > 100)
+                    <div class="text-sm text-error">⚠️ Percentage cannot exceed 100%</div>
+                @endif
+                @if ($discountType === 'fixed' && $discountValue > $subtotal)
+                    <div class="text-sm text-warning">⚠️ Fixed discount will be limited to subtotal amount</div>
+                @endif
             @endif
         </div>
 
         <x-slot:actions>
             <x-mary-button label="Cancel" wire:click="$set('showDiscountModal', false)" />
-            <x-mary-button label="Apply Discount" wire:click="applyDiscount" class="btn-primary" />
+            @if ($discountAmount > 0)
+                <x-mary-button label="Remove Current" wire:click="removeDiscount" class="btn-outline btn-warning" />
+            @endif
+            <x-mary-button label="Apply Discount" wire:click="applyDiscount" class="btn-primary"
+                :disabled="$discountType === 'percentage' && $discountValue > 100" />
         </x-slot:actions>
     </x-mary-modal>
 

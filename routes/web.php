@@ -1,24 +1,30 @@
 <?php
 
-use App\Livewire\Dashboard;
-use App\Livewire\Sales\PointOfSale;
-use App\Livewire\Sales\SalesHistory;
-use Illuminate\Support\Facades\Route;
-use App\Livewire\Admin\UserManagement;
-use App\Livewire\Inventory\StockLevels;
-use App\Livewire\Sales\ShiftManagement;
-use App\Livewire\Sales\ReturnsManagement;
-use App\Livewire\Inventory\LowStockAlerts;
-use App\Livewire\Inventory\StockMovements;
-use App\Livewire\Sales\CustomerManagement;
-use App\Livewire\Admin\RecomputeManagement;
-use App\Livewire\Inventory\StockAdjustments;
-use App\Livewire\Inventory\ProductManagement;
-use App\Livewire\Inventory\CategoryManagement;
-use App\Livewire\Inventory\WarehouseManagement;
-use App\Livewire\Purchasing\SupplierManagement;
-use App\Livewire\Purchasing\PurchaseOrderManagement;
 use App\Http\Controllers\InvoiceController; // Add this import
+use App\Http\Controllers\ReportsController;
+use App\Livewire\Admin\RecomputeManagement;
+use App\Livewire\Admin\UserManagement;
+use App\Livewire\Dashboard;
+use App\Livewire\Inventory\CategoryManagement;
+use App\Livewire\Inventory\LowStockAlerts;
+use App\Livewire\Inventory\ProductManagement;
+use App\Livewire\Inventory\StockAdjustments;
+use App\Livewire\Inventory\StockLevels;
+use App\Livewire\Inventory\StockMovements;
+use App\Livewire\Inventory\WarehouseManagement;
+use App\Livewire\Purchasing\PurchaseOrderManagement;
+use App\Livewire\Purchasing\SupplierManagement;
+use App\Livewire\Reports\CustomerReports;
+use App\Livewire\Reports\FinancialReports;
+use App\Livewire\Reports\InventoryReports;
+use App\Livewire\Reports\SalesReports;
+use App\Livewire\Sales\CustomerManagement;
+use App\Livewire\Sales\PointOfSale;
+use App\Livewire\Sales\ReturnsManagement;
+use App\Livewire\Sales\SalesHistory;
+use App\Livewire\Sales\ShiftManagement;
+use Illuminate\Support\Facades\Route;
+
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -126,24 +132,22 @@ Route::middleware([
         })->name('quick.new-purchase-order');
     });
 
-    // Future Routes - Placeholder for upcoming features
+
+    // Reports Routes - UPDATED: Replace placeholders with actual implementations
     Route::middleware(['permission:view_reports'])->prefix('reports')->name('reports.')->group(function () {
-        // These will be implemented in future phases
-        Route::get('/sales', function () {
-            return view('placeholder', ['title' => 'Sales Reports', 'message' => 'Coming Soon']);
-        })->name('sales');
+        // Sales Reports - Now implemented with full functionality
+        Route::get('/sales', SalesReports::class)->name('sales');
 
-        Route::get('/inventory', function () {
-            return view('placeholder', ['title' => 'Inventory Reports', 'message' => 'Coming Soon']);
-        })->name('inventory');
+        // Sales Reports Export Routes
+        Route::get('/sales/export-pdf', [ReportsController::class, 'exportSalesPdf'])->name('sales.export-pdf');
+        Route::get('/sales/export-excel', [ReportsController::class, 'exportSalesExcel'])->name('sales.export-excel');
 
-        Route::get('/financial', function () {
-            return view('placeholder', ['title' => 'Financial Reports', 'message' => 'Coming Soon']);
-        })->name('financial');
+        // Other reports - Still placeholders (to be implemented next)
+        Route::get('/inventory', InventoryReports::class)->name('inventory');
 
-        Route::get('/customers', function () {
-            return view('placeholder', ['title' => 'Customer Reports', 'message' => 'Coming Soon']);
-        })->name('customers');
+        Route::get('/financial', FinancialReports::class)->name('financial');
+
+        Route::get('/customers', CustomerReports::class)->name('customers');
     });
 
     // Additional Admin Routes
