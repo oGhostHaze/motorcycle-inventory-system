@@ -53,7 +53,7 @@ class SalesFocusedDataSeeder extends Seeder
     {
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
 
-        $this->command->info('🚀 Starting Sales Focused Data Seeder (2024-2026)');
+        $this->command->info('🚀 Starting Sales Focused Data Seeder (2025-2025)');
 
         // Clear all related tables first
         $this->clearAllTables();
@@ -183,8 +183,8 @@ class SalesFocusedDataSeeder extends Seeder
     {
         $this->command->info('📊 Generating historical sales data...');
 
-        $startDate = Carbon::create(2024, 1, 1);
-        $endDate = Carbon::create(2026, 12, 31);
+        $startDate = Carbon::create(2025, 1, 1);
+        $endDate = Carbon::create(2025, 6, 22);
         $currentDate = $startDate->copy();
         $dayCounter = 0;
         $totalSales = 0;
@@ -717,7 +717,7 @@ class SalesFocusedDataSeeder extends Seeder
         $this->command->info('  • Average Sale Value: ₱' . number_format(Sale::avg('total_amount'), 2));
 
         // Monthly breakdown
-        $this->command->info('📊 Monthly Sales Breakdown (2024-2026):');
+        $this->command->info('📊 Monthly Sales Breakdown (2025-2025):');
         $monthlySales = Sale::selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as sales_count, SUM(total_amount) as revenue')
             ->groupBy('year', 'month')
             ->orderBy('year')

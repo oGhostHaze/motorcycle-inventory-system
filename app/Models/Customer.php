@@ -9,6 +9,7 @@ class Customer extends Model
 {
     use HasFactory;
 
+
     protected $fillable = [
         'name',
         'email',
@@ -25,7 +26,8 @@ class Customer extends Model
         'total_orders',
         'last_purchase_at',
         'notes',
-        'is_active'
+        'is_active',
+        'store_credit'
     ];
 
     protected $casts = [
@@ -35,6 +37,7 @@ class Customer extends Model
         'total_orders' => 'integer',
         'last_purchase_at' => 'datetime',
         'is_active' => 'boolean',
+        'store_credit' => 'decimal:2',
     ];
 
     public function customerGroup()

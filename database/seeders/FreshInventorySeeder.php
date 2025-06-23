@@ -90,7 +90,7 @@ class FreshInventorySeeder extends Seeder
                 Category::firstOrCreate(['name' => $category], [
                     'slug' => \Str::slug($category),
                     'description' => "Category for {$category} products",
-                    'icon' => 'fas fa-box',
+                    'icon' => 'o-archive-box',
                     'sort_order' => $index + 1,
                     'is_active' => true,
                 ]);

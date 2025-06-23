@@ -12,22 +12,26 @@ class SaleItem extends Model
     protected $fillable = [
         'sale_id',
         'product_id',
+        'product_variant_id',
+        'product_name',
+        'product_sku',
         'quantity',
-        'returned_quantity', // Added for return tracking
+        'returned_quantity',
         'unit_price',
+        'discount_amount',
         'total_price',
         'cost_price',
-        'discount_amount',
-        'notes',
+        'serial_numbers',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
-        'returned_quantity' => 'integer', // Added
+        'returned_quantity' => 'integer',
         'unit_price' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
         'total_price' => 'decimal:2',
         'cost_price' => 'decimal:2',
-        'discount_amount' => 'decimal:2',
+        'serial_numbers' => 'array',
     ];
 
     // Relationships

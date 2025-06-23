@@ -16,7 +16,7 @@ class Sale extends Model
         'promotion_code',
         'warehouse_id',
         'user_id',
-        'shift_id', // Added shift association
+        'shift_id',
         'subtotal',
         'discount_amount',
         'tax_amount',

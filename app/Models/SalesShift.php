@@ -31,7 +31,6 @@ class SalesShift extends Model
         'total_returns_amount',
         'processed_returns_count',
         'processed_returns_amount',
-        'notes'
     ];
 
     protected $casts = [

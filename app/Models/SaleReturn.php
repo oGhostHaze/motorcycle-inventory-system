@@ -15,7 +15,7 @@ class SaleReturn extends Model
         'customer_id',
         'warehouse_id',
         'user_id',
-        'sales_shift_id',      // Added for shift tracking
+        'sales_shift_id',
         'type',
         'reason',
         'notes',
@@ -28,8 +28,8 @@ class SaleReturn extends Model
         'rejected_at',
         'processed_by',
         'processed_at',
-        'cancelled_by',        // Added
-        'cancelled_at',        // Added
+        'cancelled_by',
+        'cancelled_at',
     ];
 
     protected $casts = [
@@ -37,7 +37,7 @@ class SaleReturn extends Model
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
         'processed_at' => 'datetime',
-        'cancelled_at' => 'datetime',  // Added
+        'cancelled_at' => 'datetime',
     ];
 
     // Relationships

@@ -33,6 +33,8 @@ class User extends Authenticatable
         'is_active',
         'last_login_at',
         'permissions',
+        'theme_preference',
+        'auto_theme',
     ];
 
     /**
@@ -57,6 +59,8 @@ class User extends Authenticatable
         'last_login_at' => 'datetime',
         'is_active' => 'boolean',
         'permissions' => 'array',
+        'auto_theme' => 'boolean',
+        'two_factor_confirmed_at' => 'datetime',
     ];
 
     /**
