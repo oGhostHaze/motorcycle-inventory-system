@@ -104,7 +104,8 @@
             <div class="space-y-4">
                 <h4 class="text-lg font-semibold">Basic Information</h4>
 
-                <x-mary-input label="Product Name" wire:model="name" placeholder="Enter product name" />
+                <x-mary-input label="Product Name" wire:model="name" placeholder="Enter product name"
+                    hint="Include compatible models separated with a slash `/` e.g NMAX/PCX/M3" />
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
