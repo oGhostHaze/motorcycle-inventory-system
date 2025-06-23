@@ -10,8 +10,6 @@
                             Started: {{ $currentShift->started_at->format('H:i') }}
                         </span>
                     </div>
-                @else
-                    <x-mary-badge value="No Active Shift" class="badge-error" />
                 @endif
             </div>
             <div class="flex items-center space-x-2">
@@ -21,10 +19,6 @@
                         <div class="text-sm text-base-600">₱{{ number_format($currentShift->total_sales, 2) }} total
                         </div>
                     </div>
-                @else
-                    <x-mary-button icon="o-play" wire:click="openStartShiftModal" class="btn-primary">
-                        Start Shift
-                    </x-mary-button>
                 @endif
             </div>
         </div>
