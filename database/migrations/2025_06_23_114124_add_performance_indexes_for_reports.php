@@ -15,7 +15,6 @@ return new class extends Migration
     {
 
         try {
-            DB::beginTransaction();
             // SALES TABLE INDEXES
             Schema::table('sales', function (Blueprint $table) {
                 // For date range queries in all reports
@@ -165,10 +164,8 @@ return new class extends Migration
                 }
             });
 
-            DB::commit();
             Log::info('Performance indexes added successfully');
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Failed to add performance indexes: ' . $e->getMessage());
             throw $e;
         }
@@ -181,7 +178,6 @@ return new class extends Migration
     {
 
         try {
-            DB::beginTransaction();
             // Drop indexes in reverse order
             Schema::table('sale_returns', function (Blueprint $table) {
                 $this->dropIndexIfExists($table, 'sale_returns', 'sale_returns_shift_status_index');
@@ -241,10 +237,8 @@ return new class extends Migration
                 $this->dropIndexIfExists($table, 'sales', 'sales_payment_status_index');
             });
 
-            DB::commit();
             Log::info('Performance indexes dropped successfully');
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Failed to drop performance indexes: ' . $e->getMessage());
             throw $e;
         }

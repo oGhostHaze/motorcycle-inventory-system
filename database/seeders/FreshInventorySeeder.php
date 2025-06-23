@@ -177,7 +177,7 @@ class FreshInventorySeeder extends Seeder
             $this->command->info("Creating product #{$counter}: '{$row['description']}' with slug: '{$uniqueSlug}'");
 
             $product = Product::create([
-                'name' => $row['description'],
+                'name' => $row['description'] . ($row['motorcycle'] ? ' ' . $row['motorcycle'] : ''),
                 'slug' => $uniqueSlug,
                 'sku' => strtoupper(substr($row['brand'], 0, 3)) . '-' . str_pad($counter, 6, '0', STR_PAD_LEFT),
                 'barcode' => $barcode,
