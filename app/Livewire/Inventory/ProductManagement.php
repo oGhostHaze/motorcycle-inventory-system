@@ -48,6 +48,9 @@ class ProductManagement extends Component
     public $status = 'active';
     public $internal_notes = '';
     public $productImage;
+    public $alt_price1 = null;
+    public $alt_price2 = null;
+    public $alt_price3 = null;
 
     // Search and filters
     public $search = '';
@@ -228,6 +231,9 @@ class ProductManagement extends Component
         $this->cost_price = $product->cost_price;
         $this->selling_price = $product->selling_price;
         $this->wholesale_price = $product->wholesale_price;
+        $this->alt_price1 = $product->alt_price1;
+        $this->alt_price2 = $product->alt_price2;
+        $this->alt_price3 = $product->alt_price3;
         $this->warranty_months = $product->warranty_months;
         $this->track_serial = $product->track_serial;
         $this->track_warranty = $product->track_warranty;
@@ -302,6 +308,9 @@ class ProductManagement extends Component
                 'cost_price' => $this->cost_price,
                 'selling_price' => $this->selling_price,
                 'wholesale_price' => $this->wholesale_price,
+                'alt_price1' => $this->alt_price1,
+                'alt_price2' => $this->alt_price2,
+                'alt_price3' => $this->alt_price3,
                 'warranty_months' => $this->warranty_months,
                 'track_serial' => $this->track_serial,
                 'track_warranty' => $this->track_warranty,
@@ -413,6 +422,9 @@ class ProductManagement extends Component
             'internal_notes',
             'productImage'
         ]);
+        $this->alt_price1 = null;
+        $this->alt_price2 = null;
+        $this->alt_price3 = null;
         $this->status = 'active';
         $this->loadWarehouses();
     }

@@ -27,6 +27,9 @@ class Product extends Model
         'cost_price',
         'selling_price',
         'wholesale_price',
+        'alt_price1',
+        'alt_price2',
+        'alt_price3',
         'warranty_months',
         'track_serial',
         'track_warranty',
@@ -43,6 +46,9 @@ class Product extends Model
         'cost_price' => 'decimal:2',
         'selling_price' => 'decimal:2',
         'wholesale_price' => 'decimal:2',
+        'alt_price1' => 'decimal:2',
+        'alt_price2' => 'decimal:2',
+        'alt_price3' => 'decimal:2',
         'warranty_months' => 'integer',
         'track_serial' => 'boolean',
         'track_warranty' => 'boolean',
@@ -177,6 +183,45 @@ class Product extends Model
     }
 
     // ========== HELPER METHODS ==========
+    public function getAvailablePrices()
+    {
+        $prices = [
+            'selling_price' => [
+                'label' => 'Selling Price',
+                'value' => $this->selling_price
+            ]
+        ];
+
+        if ($this->wholesale_price) {
+            $prices['wholesale_price'] = [
+                'label' => 'Wholesale Price',
+                'value' => $this->wholesale_price
+            ];
+        }
+
+        if ($this->alt_price1) {
+            $prices['alt_price1'] = [
+                'label' => 'Alternative Price 1',
+                'value' => $this->alt_price1
+            ];
+        }
+
+        if ($this->alt_price2) {
+            $prices['alt_price2'] = [
+                'label' => 'Alternative Price 2',
+                'value' => $this->alt_price2
+            ];
+        }
+
+        if ($this->alt_price3) {
+            $prices['alt_price3'] = [
+                'label' => 'Alternative Price 3',
+                'value' => $this->alt_price3
+            ];
+        }
+
+        return $prices;
+    }
 
     public function isLowStock()
     {
@@ -217,7 +262,7 @@ class Product extends Model
 
         static::updating(function ($model) {
             // Safely log price changes
-            if ($model->isDirty(['cost_price', 'selling_price', 'wholesale_price'])) {
+            if ($model->isDirty(['cost_price', 'selling_price', 'wholesale_price', 'alt_price1', 'alt_price2', 'alt_price3'])) {
                 try {
                     $oldValues = $model->getOriginal();
                     $newValues = $model->getAttributes();

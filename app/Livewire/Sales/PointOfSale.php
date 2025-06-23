@@ -74,10 +74,19 @@ class PointOfSale extends Component
     public $openingNotes = '';
 
     // Tax rate (configurable)
-    public $taxRate = 0.12; // 12% VAT
+    public $taxRate = 0; // 12% VAT
 
     public $showHeldSalesModal = false;
     public $heldSales = [];
+
+    // Price selection properties
+    public $showPriceModal = false;
+    public $showBulkPriceModal = false;
+    public $selectedCartIndex = null;
+    public $availablePrices = [];
+    public $showAddPriceModal = false;
+    public $pendingProductId = null;
+    public $bulkPriceType = 'selling_price';
 
     public function mount()
     {
@@ -106,7 +115,7 @@ class PointOfSale extends Component
         return view('livewire.sales.point-of-sale', [
             'warehouses' => $warehouses,
             'customers' => $customers,
-        ])->layout('layouts.app', ['title' => 'Point of Sale']);
+        ])->layout('layouts.pos', ['title' => 'Point of Sale']);
     }
 
     // ===== SHIFT MANAGEMENT METHODS =====
@@ -188,6 +197,205 @@ class PointOfSale extends Component
         }
     }
 
+    /**
+     * Open price selection for individual cart item
+     */
+    public function openPriceSelection($cartKey)
+    {
+        if (!isset($this->cartItems[$cartKey])) {
+            return;
+        }
+
+        $product = Product::find($this->cartItems[$cartKey]['product_id']);
+        if (!$product) {
+            return;
+        }
+
+        $this->selectedCartIndex = $cartKey;
+        $this->availablePrices = $product->getAvailablePrices();
+        $this->showPriceModal = true;
+    }
+
+    /**
+     * Select price for individual cart item
+     */
+    public function selectPrice($priceType)
+    {
+        if (!$this->selectedCartIndex || !isset($this->availablePrices[$priceType])) {
+            return;
+        }
+
+        $newPrice = $this->availablePrices[$priceType]['value'];
+        $priceLabel = $this->availablePrices[$priceType]['label']; // Store label before clearing
+
+        $this->cartItems[$this->selectedCartIndex]['price'] = $newPrice;
+        $this->cartItems[$this->selectedCartIndex]['subtotal'] =
+            $this->cartItems[$this->selectedCartIndex]['quantity'] * $newPrice;
+
+        $this->updateCartTotals();
+        $this->showPriceModal = false;
+        $this->selectedCartIndex = null;
+        $this->availablePrices = []; // Clear after storing the label
+
+        $this->success('Price updated to ' . $priceLabel . ': ₱' . number_format($newPrice, 2));
+    }
+
+    /**
+     * Open bulk price selection for all cart items
+     */
+    public function openBulkPriceSelection()
+    {
+        if (empty($this->cartItems)) {
+            $this->error('Cart is empty.');
+            return;
+        }
+
+        $this->bulkPriceType = 'selling_price';
+        $this->showBulkPriceModal = true;
+    }
+
+    /**
+     * Apply bulk price change to all compatible items
+     */
+    public function applyBulkPrice()
+    {
+        if (empty($this->cartItems)) {
+            return;
+        }
+
+        $updatedCount = 0;
+
+        foreach ($this->cartItems as $cartKey => $item) {
+            $product = Product::find($item['product_id']);
+            if (!$product) continue;
+
+            $newPrice = null;
+            switch ($this->bulkPriceType) {
+                case 'selling_price':
+                    $newPrice = $product->selling_price;
+                    break;
+                case 'wholesale_price':
+                    $newPrice = $product->wholesale_price;
+                    break;
+                case 'alt_price1':
+                    $newPrice = $product->alt_price1;
+                    break;
+                case 'alt_price2':
+                    $newPrice = $product->alt_price2;
+                    break;
+                case 'alt_price3':
+                    $newPrice = $product->alt_price3;
+                    break;
+            }
+
+            if ($newPrice > 0) {
+                $this->cartItems[$cartKey]['price'] = $newPrice;
+                $this->cartItems[$cartKey]['subtotal'] =
+                    $this->cartItems[$cartKey]['quantity'] * $newPrice;
+                $updatedCount++;
+            }
+        }
+
+        $this->updateCartTotals();
+        $this->showBulkPriceModal = false;
+
+        if ($updatedCount > 0) {
+            $this->success($updatedCount . ' item(s) price updated successfully!');
+        } else {
+            $this->warning('No items were updated. Selected price type may not be available for current products.');
+        }
+    }
+
+    /**
+     * Enhanced addToCart with price selection option
+     */
+    public function addToCartWithPriceSelection($productId)
+    {
+        if (!$this->checkActiveShift()) return;
+
+        $product = Product::find($productId);
+        if (!$product) {
+            $this->error('Product not found.');
+            return;
+        }
+
+        $availablePrices = $product->getAvailablePrices();
+
+        // If only one price is available, add directly
+        if (count($availablePrices) <= 1) {
+            $this->addToCart($productId);
+            return;
+        }
+
+        // Show price selection modal
+        $this->pendingProductId = $productId;
+        $this->availablePrices = $availablePrices;
+        $this->showAddPriceModal = true;
+    }
+
+    /**
+     * Add to cart with selected price
+     */
+    public function addToCartWithPrice($priceType)
+    {
+        if (!$this->pendingProductId || !isset($this->availablePrices[$priceType])) {
+            return;
+        }
+
+        $product = Product::with(['inventory' => function ($query) {
+            $query->where('warehouse_id', $this->selectedWarehouse);
+        }])->find($this->pendingProductId);
+
+        if (!$product) {
+            $this->error('Product not found.');
+            return;
+        }
+
+        $inventory = $product->inventory->first();
+        $availableStock = $inventory ? $inventory->quantity_available : 0;
+
+        if ($availableStock <= 0) {
+            $this->error('Product is out of stock.');
+            return;
+        }
+
+        $selectedPrice = $this->availablePrices[$priceType]['value'];
+        $priceLabel = $this->availablePrices[$priceType]['label']; // Store label before clearing
+        $cartKey = $this->pendingProductId;
+
+        if (isset($this->cartItems[$cartKey])) {
+            if ($this->cartItems[$cartKey]['quantity'] >= $availableStock) {
+                $this->error('Cannot add more items. Stock limit reached.');
+                return;
+            }
+            $this->cartItems[$cartKey]['quantity']++;
+            $this->cartItems[$cartKey]['subtotal'] =
+                $this->cartItems[$cartKey]['quantity'] * $this->cartItems[$cartKey]['price'];
+        } else {
+            $this->cartItems[$cartKey] = [
+                'product_id' => $product->id,
+                'name' => $product->name,
+                'sku' => $product->sku,
+                'price' => $selectedPrice,
+                'quantity' => 1,
+                'available_stock' => $availableStock,
+                'subtotal' => $selectedPrice,
+            ];
+        }
+
+        $this->updateCartTotals();
+        $this->searchProduct = '';
+        $this->searchResults = [];
+        $this->showAddPriceModal = false;
+        $this->pendingProductId = null;
+        $this->availablePrices = []; // Clear after storing the label
+
+        $this->success('Item added to cart with ' . $priceLabel . ': ₱' . number_format($selectedPrice, 2));
+    }
+
+    /**
+     * Updated addToCart method (keep existing functionality)
+     */
     public function addToCart($productId)
     {
         if (!$this->checkActiveShift()) return;
@@ -217,12 +425,14 @@ class PointOfSale extends Component
                 return;
             }
             $this->cartItems[$cartKey]['quantity']++;
+            $this->cartItems[$cartKey]['subtotal'] =
+                $this->cartItems[$cartKey]['quantity'] * $this->cartItems[$cartKey]['price'];
         } else {
             $this->cartItems[$cartKey] = [
                 'product_id' => $product->id,
                 'name' => $product->name,
                 'sku' => $product->sku,
-                'price' => $product->selling_price,
+                'price' => $product->selling_price, // Default to selling price
                 'quantity' => 1,
                 'available_stock' => $availableStock,
                 'subtotal' => $product->selling_price,
@@ -657,7 +867,7 @@ class PointOfSale extends Component
     public function processBarcodeInput()
     {
         if (empty($this->barcodeInput)) {
-            return; // Don't show error, just return for empty input
+            return;
         }
 
         $product = Product::where('barcode', $this->barcodeInput)
@@ -687,7 +897,6 @@ class PointOfSale extends Component
             }
 
             if ($existingIndex !== null) {
-                // Check stock limit
                 if ($this->scannedItems[$existingIndex]['quantity'] >= $availableStock) {
                     $this->error('Cannot add more. Stock limit: ' . $availableStock);
                     $this->barcodeInput = '';
@@ -697,12 +906,12 @@ class PointOfSale extends Component
                 $this->scannedItems[$existingIndex]['subtotal'] =
                     $this->scannedItems[$existingIndex]['quantity'] * $this->scannedItems[$existingIndex]['price'];
             } else {
-                // Add new item to scanned batch
+                // Add new item to scanned batch with default selling price
                 $this->scannedItems[] = [
                     'product_id' => $product->id,
                     'name' => $product->name,
                     'sku' => $product->sku,
-                    'price' => $product->selling_price,
+                    'price' => $product->selling_price, // Uses selling price by default
                     'quantity' => 1,
                     'available_stock' => $availableStock,
                     'subtotal' => $product->selling_price,
@@ -714,7 +923,6 @@ class PointOfSale extends Component
             $this->error('Product not found: ' . $this->barcodeInput);
         }
 
-        // Clear input for next scan
         $this->barcodeInput = '';
     }
 

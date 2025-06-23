@@ -42,3 +42,26 @@
 .avatar {
     @apply text-center uppercase;
 }
+@layer base {
+    html, body {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* Or apply to all elements */
+@layer utilities {
+    .hide-all-scrollbars * {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .hide-all-scrollbars *::-webkit-scrollbar {
+        display: none;
+    }
+}

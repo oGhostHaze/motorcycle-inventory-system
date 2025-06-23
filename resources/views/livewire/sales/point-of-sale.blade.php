@@ -1,13 +1,12 @@
-<div class="min-h-screen bg-base-200">
+<div class="min-h-screen bg-base-200 hide-all-scrollbarss">
     {{-- Header with Shift Status --}}
     <div class="p-4 shadow-sm bg-base-100">
         <div class="flex items-center justify-between">
             <div class="flex items-center space-x-4">
-                <h1 class="text-2xl font-bold">Point of Sale</h1>
                 @if ($currentShift)
                     <div class="flex items-center space-x-2">
                         <x-mary-badge value="Shift: {{ $currentShift->shift_number }}" class="badge-success" />
-                        <span class="text-sm text-gray-600">
+                        <span class="text-sm text-base-600">
                             Started: {{ $currentShift->started_at->format('H:i') }}
                         </span>
                     </div>
@@ -19,7 +18,7 @@
                 @if ($currentShift)
                     <div class="text-right">
                         <div class="text-sm font-medium">{{ $currentShift->total_transactions }} transactions</div>
-                        <div class="text-sm text-gray-600">₱{{ number_format($currentShift->total_sales, 2) }} total
+                        <div class="text-sm text-base-600">₱{{ number_format($currentShift->total_sales, 2) }} total
                         </div>
                     </div>
                 @else
@@ -27,9 +26,6 @@
                         Start Shift
                     </x-mary-button>
                 @endif
-                <x-mary-button icon="o-arrow-left" link="{{ route('dashboard') }}" class="btn-ghost">
-                    Dashboard
-                </x-mary-button>
             </div>
         </div>
     </div>
@@ -63,49 +59,65 @@
                             tooltip="Barcode Scanner" :disabled="!$currentShift" />
                     </div>
 
-                    {{-- Search Results --}}
+                    {{-- Product Search Results --}}
                     @if (count($searchResults) > 0)
-                        <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-                            @foreach ($searchResults as $product)
-                                <div class="p-3 transition-colors border rounded-lg cursor-pointer hover:bg-primary/10 hover:border-primary"
-                                    wire:click="addToCart({{ $product['id'] }})">
-                                    <div class="flex items-center justify-between">
-                                        <div>
-                                            <div class="font-medium">{{ $product['name'] }}</div>
-                                            <div class="text-sm text-gray-500">{{ $product['sku'] }}</div>
-                                        </div>
-                                        <div class="text-right">
-                                            <div class="font-bold">₱{{ number_format($product['selling_price'], 2) }}
+                        <div class="mt-4">
+                            <h5 class="mb-2 font-medium text-base-700">Search Results:</h5>
+                            <div class="overflow-y-auto border rounded-lg shadow-sm bg-base h-60">
+                                <div class="space-y-0">
+                                    @foreach ($searchResults as $product)
+                                        <div
+                                            class="flex items-center justify-between p-3 transition-colors border-b last:border-b-0 hover:bg-base-50">
+                                            <div class="flex-1 min-w-0">
+                                                <div class="font-medium truncate">{{ $product['name'] }}</div>
+                                                <div class="text-sm truncate text-base-500">{{ $product['sku'] }} |
+                                                    ₱{{ number_format($product['selling_price'], 2) }}</div>
+                                                @php
+                                                    $stock = $product['inventory'][0]['quantity_available'] ?? 0;
+                                                @endphp
+                                                <div
+                                                    class="text-sm {{ $stock <= 0 ? 'text-red-500 font-semibold' : 'text-base-500' }}">
+                                                    Stock: {{ $stock }}
+                                                    @if ($stock <= 0)
+                                                        <span class="ml-1 text-xs">(Out of Stock)</span>
+                                                    @endif
+                                                </div>
                                             </div>
-                                            @php
-                                                $stock = $product['inventory'][0]['quantity_available'] ?? 0;
-                                            @endphp
-                                            <div
-                                                class="text-sm {{ $stock <= 0 ? 'text-red-500 font-semibold' : 'text-gray-500' }}">
-                                                Stock: {{ $stock }}
-                                                @if ($stock <= 0)
-                                                    <span class="text-xs ml-1">(Out of Stock)</span>
-                                                @endif
+                                            <div class="flex flex-shrink-0 gap-2">
+                                                <x-mary-button icon="o-plus"
+                                                    wire:click="addToCart({{ $product['id'] }})"
+                                                    class="btn-xs btn-primary" :disabled="!$currentShift || $stock <= 0"
+                                                    title="Add with default price" />
+                                                <x-mary-button icon="o-currency-dollar"
+                                                    wire:click="addToCartWithPriceSelection({{ $product['id'] }})"
+                                                    class="btn-xs btn-secondary" :disabled="!$currentShift || $stock <= 0"
+                                                    title="Add with price selection" />
                                             </div>
                                         </div>
-                                    </div>
+                                    @endforeach
                                 </div>
-                            @endforeach
+                            </div>
                         </div>
                     @endif
                 </div>
             </x-mary-card>
-
             {{-- Shopping Cart --}}
-            <x-mary-card title="Shopping Cart ({{ count($cartItems) }} items)"
-                class="{{ !$currentShift ? 'opacity-50' : '' }}">
+            <x-mary-card class="{{ !$currentShift ? 'opacity-50' : '' }}">
+                {{-- Shopping Cart Header with Bulk Actions --}}
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">Shopping Cart ({{ count($cartItems) }} items)</h3>
+                    @if (count($cartItems) > 0)
+                        <x-mary-button icon="o-currency-dollar" wire:click="openBulkPriceSelection"
+                            class="btn-xs btn-outline" :disabled="!$currentShift" label="Bulk Price" />
+                    @endif
+                </div>
                 @if (count($cartItems) > 0)
                     <div class="space-y-3">
                         @foreach ($cartItems as $key => $item)
                             <div class="flex items-center gap-4 p-3 border rounded-lg bg-base-50">
                                 <div class="flex-1">
                                     <div class="font-medium">{{ $item['name'] }}</div>
-                                    <div class="text-sm text-gray-500">{{ $item['sku'] }}</div>
+                                    <div class="text-sm text-base-500">{{ $item['sku'] }}</div>
                                 </div>
 
                                 {{-- Quantity Controls --}}
@@ -121,11 +133,16 @@
                                         class="btn-xs btn-ghost" :disabled="!$currentShift" />
                                 </div>
 
-                                {{-- Price --}}
-                                <div class="w-24">
-                                    <x-mary-input wire:model.blur="cartItems.{{ $key }}.price"
-                                        wire:change="updatePrice('{{ $key }}', $event.target.value)"
-                                        class="text-right input-xs" :disabled="!$currentShift" />
+                                {{-- Price with selection button --}}
+                                <div class="w-32">
+                                    <div class="flex items-center gap-1">
+                                        <x-mary-input wire:model.blur="cartItems.{{ $key }}.price"
+                                            wire:change="updatePrice('{{ $key }}', $event.target.value)"
+                                            class="text-right input-xs" :disabled="!$currentShift" />
+                                        <x-mary-button icon="o-ellipsis-vertical"
+                                            wire:click="openPriceSelection('{{ $key }}')"
+                                            class="btn-xs btn-ghost" :disabled="!$currentShift" title="Select price" />
+                                    </div>
                                 </div>
 
                                 {{-- Subtotal --}}
@@ -151,9 +168,9 @@
                     </div>
                 @else
                     <div class="py-8 text-center">
-                        <x-heroicon-o-shopping-cart class="w-12 h-12 mx-auto text-gray-400" />
-                        <p class="mt-2 text-gray-500">Cart is empty</p>
-                        <p class="text-sm text-gray-400">
+                        <x-heroicon-o-shopping-cart class="w-12 h-12 mx-auto text-base-400" />
+                        <p class="mt-2 text-base-500">Cart is empty</p>
+                        <p class="text-sm text-base-400">
                             {{ $currentShift ? 'Search for products to add to cart' : 'Start a shift to begin adding products' }}
                         </p>
                         <x-mary-button label="Held Sales" wire:click="openHeldSalesModal" class="btn-info btn-sm"
@@ -174,14 +191,14 @@
                             <div class="flex items-center justify-between">
                                 <div>
                                     <div class="font-medium">{{ $customer->name }}</div>
-                                    <div class="text-sm text-gray-600">{{ $customer->email }}</div>
+                                    <div class="text-sm text-base-600">{{ $customer->email }}</div>
                                 </div>
                                 <x-mary-button icon="o-x-mark" wire:click="$set('selectedCustomer', null)"
                                     class="btn-xs btn-ghost" :disabled="!$currentShift" />
                             </div>
                         </div>
                     @else
-                        <div class="text-center text-gray-500">
+                        <div class="text-center text-base-500">
                             <p>Walk-in Customer</p>
                         </div>
                     @endif
@@ -251,6 +268,72 @@
         </div>
     </div>
 
+    {{-- Individual Price Selection Modal --}}
+    <x-mary-modal wire:model="showPriceModal" title="Select Price" class="backdrop-blur">
+        <div class="space-y-3">
+            @if ($availablePrices)
+                @foreach ($availablePrices as $priceType => $priceData)
+                    <div class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-base-50"
+                        wire:click="selectPrice('{{ $priceType }}')">
+                        <span class="font-medium">{{ $priceData['label'] }}</span>
+                        <span
+                            class="text-lg font-bold text-primary">₱{{ number_format($priceData['value'], 2) }}</span>
+                    </div>
+                @endforeach
+            @endif
+        </div>
+
+        <x-slot:actions>
+            <x-mary-button label="Cancel" wire:click="$set('showPriceModal', false)" />
+        </x-slot:actions>
+    </x-mary-modal>
+
+    {{-- Add to Cart Price Selection Modal --}}
+    <x-mary-modal wire:model="showAddPriceModal" title="Select Price for Adding to Cart" class="backdrop-blur">
+        <div class="space-y-3">
+            @if ($availablePrices)
+                @foreach ($availablePrices as $priceType => $priceData)
+                    <div class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-base-50"
+                        wire:click="addToCartWithPrice('{{ $priceType }}')">
+                        <span class="font-medium">{{ $priceData['label'] }}</span>
+                        <span
+                            class="text-lg font-bold text-primary">₱{{ number_format($priceData['value'], 2) }}</span>
+                    </div>
+                @endforeach
+            @endif
+        </div>
+
+        <x-slot:actions>
+            <x-mary-button label="Cancel" wire:click="$set('showAddPriceModal', false)" />
+        </x-slot:actions>
+    </x-mary-modal>
+
+    {{-- Bulk Price Selection Modal --}}
+    <x-mary-modal wire:model="showBulkPriceModal" title="Apply Bulk Price Change" class="backdrop-blur">
+        <div class="space-y-4">
+            <p class="text-base-600">Select a price type to apply to all compatible items in the cart:</p>
+
+            <x-mary-radio wire:model="bulkPriceType" :options="[
+                ['id' => 'selling_price', 'name' => 'Selling Price (Default)'],
+                ['id' => 'wholesale_price', 'name' => 'Wholesale Price'],
+                ['id' => 'alt_price1', 'name' => 'Alternative Price 1'],
+                ['id' => 'alt_price2', 'name' => 'Alternative Price 2'],
+                ['id' => 'alt_price3', 'name' => 'Alternative Price 3'],
+            ]" option-value="id" option-label="name" />
+
+            <div class="p-3 border border-yellow-200 rounded-lg bg-yellow-50">
+                <p class="text-sm text-yellow-800">
+                    <strong>Note:</strong> Only products that have the selected price type available will be updated.
+                </p>
+            </div>
+        </div>
+
+        <x-slot:actions>
+            <x-mary-button label="Cancel" wire:click="$set('showBulkPriceModal', false)" />
+            <x-mary-button label="Apply to All" wire:click="applyBulkPrice" class="btn-primary" />
+        </x-slot:actions>
+    </x-mary-modal>
+
     {{-- Start Shift Modal --}}
     <x-mary-modal wire:model="showStartShiftModal" title="Start Sales Shift"
         subtitle="Initialize your cash drawer and begin sales">
@@ -269,7 +352,7 @@
                     <x-heroicon-o-information-circle class="w-5 h-5 mt-0.5 text-info" />
                     <div class="text-sm">
                         <p class="font-medium text-info">Shift Requirements:</p>
-                        <ul class="mt-1 space-y-1 text-gray-700">
+                        <ul class="mt-1 space-y-1 text-base-700">
                             <li>• Count your cash drawer carefully before starting</li>
                             <li>• This amount will be used for end-of-shift reconciliation</li>
                             <li>• All sales will be tracked under this shift</li>
@@ -330,7 +413,7 @@
                     class="{{ $paidAmount < $totalAmount ? 'input-error' : ($changeAmount > 0 ? 'input-success' : '') }}" />
 
                 @if ($paymentMethod === 'cash')
-                    <div class="flex gap-2 flex-wrap">
+                    <div class="flex flex-wrap gap-2">
                         <x-mary-button label="Exact Amount" wire:click="setExactCash" class="btn-outline btn-sm" />
                         {{-- Quick Cash Buttons --}}
                         <x-mary-button label="₱{{ number_format(ceil($totalAmount / 100) * 100, 0) }}"
@@ -369,7 +452,7 @@
             @if ($changeAmount > 0)
                 <div class="p-4 border rounded-lg bg-success/10 border-success/20">
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-success mb-2">
+                        <div class="mb-2 text-2xl font-bold text-success">
                             Change: ₱{{ number_format($changeAmount, 2) }}
                         </div>
                     </div>
@@ -410,7 +493,7 @@
                             <div class="flex items-center gap-3 p-3 border rounded-lg bg-base-200">
                                 <div class="flex-1">
                                     <div class="font-medium">{{ $item['name'] }}</div>
-                                    <div class="text-sm text-gray-500">{{ $item['sku'] }} • Stock:
+                                    <div class="text-sm text-base-500">{{ $item['sku'] }} • Stock:
                                         {{ $item['available_stock'] }}</div>
                                 </div>
                                 <div class="flex items-center gap-2">
@@ -442,7 +525,7 @@
                     </div>
 
                     {{-- Batch Total --}}
-                    <div class="pt-2 mt-3 border-t border-gray-300">
+                    <div class="pt-2 mt-3 border-t border-base-300">
                         <div class="flex justify-between text-sm font-semibold">
                             <span>Batch Total:</span>
                             <span>₱{{ number_format(collect($scannedItems)->sum('subtotal'), 2) }}</span>
@@ -451,9 +534,9 @@
                 </div>
             @else
                 <div class="py-8 text-center">
-                    <x-heroicon-o-qr-code class="w-12 h-12 mx-auto text-gray-400" />
-                    <p class="mt-2 text-gray-500">No items scanned yet</p>
-                    <p class="text-sm text-gray-400">Scan barcodes to add products</p>
+                    <x-heroicon-o-qr-code class="w-12 h-12 mx-auto text-base-400" />
+                    <p class="mt-2 text-base-500">No items scanned yet</p>
+                    <p class="text-sm text-base-400">Scan barcodes to add products</p>
                 </div>
             @endif
 
@@ -509,7 +592,7 @@
                             wire:click="selectSearchedCustomer({{ $customer['id'] }})">
                             <div>
                                 <div class="font-medium">{{ $customer['name'] }}</div>
-                                <div class="text-sm text-gray-500">
+                                <div class="text-sm text-base-500">
                                     {{ $customer['email'] ?? 'No email' }} • {{ $customer['phone'] ?? 'No phone' }}
                                 </div>
                             </div>
@@ -518,8 +601,8 @@
                 </div>
             @elseif (strlen($customerSearch) >= 2)
                 <div class="py-8 text-center">
-                    <x-heroicon-o-user-minus class="w-12 h-12 mx-auto text-gray-400" />
-                    <p class="mt-2 text-gray-500">No customers found</p>
+                    <x-heroicon-o-user-minus class="w-12 h-12 mx-auto text-base-400" />
+                    <p class="mt-2 text-base-500">No customers found</p>
                 </div>
             @endif
         </div>
@@ -623,7 +706,7 @@
                     <x-heroicon-o-information-circle class="w-5 h-5 mt-0.5 text-warning" />
                     <div class="text-sm">
                         <p class="font-medium text-warning">Hold Sale Information:</p>
-                        <ul class="mt-1 space-y-1 text-gray-700">
+                        <ul class="mt-1 space-y-1 text-base-700">
                             <li>• Current cart will be saved and cleared</li>
                             <li>• You can retrieve this sale later from "Held Sales"</li>
                             <li>• Customer and discount information will be preserved</li>
@@ -689,9 +772,9 @@
             </div>
         @else
             <div class="py-8 text-center">
-                <x-heroicon-o-document-text class="w-12 h-12 mx-auto text-gray-400" />
-                <p class="mt-2 text-gray-500">No held sales found</p>
-                <p class="text-sm text-gray-400">Hold a sale to see it here</p>
+                <x-heroicon-o-document-text class="w-12 h-12 mx-auto text-base-400" />
+                <p class="mt-2 text-base-500">No held sales found</p>
+                <p class="text-sm text-base-400">Hold a sale to see it here</p>
             </div>
         @endif
 
@@ -736,7 +819,7 @@
                     <x-heroicon-o-information-circle class="w-5 h-5 mt-0.5 text-info" />
                     <div class="text-sm">
                         <p class="font-medium text-info">Important Reminder:</p>
-                        <p class="mt-1 text-gray-700">
+                        <p class="mt-1 text-base-700">
                             This is a provisional receipt for internal tracking only.
                             Please issue an official BIR receipt manually for legal compliance.
                         </p>

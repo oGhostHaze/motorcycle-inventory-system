@@ -241,12 +241,24 @@
                     <x-mary-input label="OEM Number" wire:model="oem_number" placeholder="OEM part #" />
                 </div>
 
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-2 gap-3">
                     <x-mary-input label="Cost Price" wire:model="cost_price" type="number" step="0.01"
                         placeholder="0.00" />
-                    <x-mary-input label="Selling Price" wire:model="selling_price" type="number" step="0.01"
-                        placeholder="0.00" />
+                    <x-mary-input label="Selling Price (Default)" wire:model="selling_price" type="number"
+                        step="0.01" placeholder="0.00" />
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
                     <x-mary-input label="Wholesale Price" wire:model="wholesale_price" type="number" step="0.01"
+                        placeholder="0.00" />
+                    <x-mary-input label="Alternative Price 1" wire:model="alt_price1" type="number" step="0.01"
+                        placeholder="0.00" />
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <x-mary-input label="Alternative Price 2" wire:model="alt_price2" type="number" step="0.01"
+                        placeholder="0.00" />
+                    <x-mary-input label="Alternative Price 3" wire:model="alt_price3" type="number" step="0.01"
                         placeholder="0.00" />
                 </div>
 
