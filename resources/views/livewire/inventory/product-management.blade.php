@@ -288,7 +288,14 @@
 
             {{-- Warehouse Stock Levels --}}
             <div class="p-4 border rounded-lg">
-                <h5 class="mb-3 font-medium">Warehouse Stock Levels</h5>
+                <div class="flex items-center justify-between mb-3">
+                    <h5 class="font-medium">Warehouse Stock Levels</h5>
+                    @if (count($availableLocations) === 0)
+                        <a href="{{ route('inventory.locations') }}" class="text-xs text-primary hover:underline">
+                            Setup Locations
+                        </a>
+                    @endif
+                </div>
                 <div class="space-y-3">
                     @foreach ($warehouseStock as $warehouseId => $stock)
                         <div class="grid items-end grid-cols-3 gap-3">
@@ -297,11 +304,21 @@
                             </div>
                             <x-mary-input label="Quantity" wire:model="warehouseStock.{{ $warehouseId }}.quantity"
                                 type="number" placeholder="0" />
-                            <x-mary-input label="Location" wire:model="warehouseStock.{{ $warehouseId }}.location"
-                                placeholder="e.g., A1-B2" />
+                            <x-mary-select label="Location"
+                                wire:model="warehouseStock.{{ $warehouseId }}.inventory_location_id"
+                                :options="$availableLocations" option-value="id" option-label="label"
+                                placeholder="Select location (optional)" />
                         </div>
                     @endforeach
                 </div>
+
+                @if (count($availableLocations) === 0)
+                    <div class="p-2 mt-3 text-xs border rounded bg-warning/10 border-warning/20 text-warning">
+                        <x-heroicon-o-exclamation-triangle class="inline w-4 h-4 mr-1" />
+                        No locations available. <a href="{{ route('inventory.locations') }}" class="underline">Create
+                            locations</a> to organize inventory better.
+                    </div>
+                @endif
             </div>
         </div>
 

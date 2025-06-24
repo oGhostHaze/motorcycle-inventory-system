@@ -2,10 +2,26 @@
 
 namespace App\Models;
 
+use App\Models\Category;
+use App\Models\Inventory;
+use App\Models\MotorcycleModel;
+use App\Models\PriceHistory;
+use App\Models\ProductBrand;
+use App\Models\ProductReview;
+use App\Models\ProductVariant;
+use App\Models\Sale;
+use App\Models\SaleItem;
+use App\Models\SerialNumber;
+use App\Models\StockMovement;
+use App\Models\Subcategory;
+use App\Models\SupplierProduct;
+use App\Models\WarrantyClaim;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class Product extends Model
 {
@@ -139,6 +155,34 @@ class Product extends Model
     public function warrantyClaims()
     {
         return $this->hasMany(WarrantyClaim::class);
+    }
+
+    public function hasActiveWarranty()
+    {
+        return $this->track_warranty && $this->warranty_months > 0;
+    }
+
+    public function getWarrantyEndDate($purchaseDate)
+    {
+        if (!$this->hasActiveWarranty()) {
+            return null;
+        }
+
+        return Carbon::parse($purchaseDate)->addMonths($this->warranty_months);
+    }
+
+    public function getActiveSerialNumbers()
+    {
+        return $this->serialNumbers()
+            ->where('status', 'available')
+            ->orWhere('status', 'sold');
+    }
+
+    public function getExpiredWarranties()
+    {
+        return $this->serialNumbers()
+            ->where('warranty_expires_at', '<', now())
+            ->where('status', 'sold');
     }
 
     // ========== COMPUTED ATTRIBUTES ==========

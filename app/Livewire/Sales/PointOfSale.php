@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SalesShift;
+use App\Models\SerialNumber;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
@@ -88,6 +89,16 @@ class PointOfSale extends Component
     public $pendingProductId = null;
     public $bulkPriceType = 'selling_price';
 
+    // Add these properties to the existing PointOfSale class
+    public $showSerialModal = false;
+    public $serialCartKey = null;
+    public $serialProductId = null;
+    public $requiredSerials = 1;
+    public $enteredSerials = [];
+    public $serialInput = '';
+    public $availableSerials = [];
+    public $bulkSerialInput = '';
+
     public function mount()
     {
         $this->loadCurrentShift();
@@ -116,6 +127,197 @@ class PointOfSale extends Component
             'warehouses' => $warehouses,
             'customers' => $customers,
         ])->layout('layouts.pos', ['title' => 'Point of Sale']);
+    }
+
+    public function openSerialModal($cartKey)
+    {
+        // Check if customer is selected first
+        if (!$this->selectedCustomer) {
+            $this->error('Please select a customer before entering serial numbers.');
+            return;
+        }
+
+        if (!isset($this->cartItems[$cartKey])) {
+            $this->error('Cart item not found.');
+            return;
+        }
+
+        $cartItem = $this->cartItems[$cartKey];
+        $product = Product::find($cartItem['product_id']);
+
+        if (!$product->track_serial) {
+            $this->error('This product does not require serial tracking.');
+            return;
+        }
+
+        $this->serialCartKey = $cartKey;
+        $this->serialProductId = $product->id;
+        $this->requiredSerials = $cartItem['quantity'];
+        $this->enteredSerials = $cartItem['serial_numbers'] ?? [];
+        $this->serialInput = '';
+
+        $this->showSerialModal = true;
+    }
+
+    public function addSerialNumber()
+    {
+        if (empty($this->serialInput)) {
+            $this->error('Please enter a serial number.');
+            return;
+        }
+
+        // Check if already entered in current session
+        if (in_array($this->serialInput, $this->enteredSerials)) {
+            $this->error('Serial number already added to this item.');
+            return;
+        }
+
+        // Check if we've reached the required quantity
+        if (count($this->enteredSerials) >= $this->requiredSerials) {
+            $this->error('All required serial numbers have been entered.');
+            return;
+        }
+
+        // Simply add the serial number - no database validation
+        $this->enteredSerials[] = $this->serialInput;
+        $this->serialInput = '';
+
+        $this->success('Serial number added successfully!');
+    }
+
+    public function removeSerialNumber($index)
+    {
+        if (isset($this->enteredSerials[$index])) {
+            $removedSerial = $this->enteredSerials[$index];
+            unset($this->enteredSerials[$index]);
+            $this->enteredSerials = array_values($this->enteredSerials);
+            $this->success('Removed serial: ' . $removedSerial);
+        }
+    }
+
+    public function saveSerialNumbers()
+    {
+        if (count($this->enteredSerials) !== $this->requiredSerials) {
+            $this->error("Please enter exactly {$this->requiredSerials} serial number(s).");
+            return;
+        }
+
+        // Update the cart item with serial numbers
+        $this->cartItems[$this->serialCartKey]['serial_numbers'] = $this->enteredSerials;
+
+        $this->showSerialModal = false;
+        $this->reset(['serialCartKey', 'serialProductId', 'requiredSerials', 'enteredSerials', 'serialInput']);
+
+        $this->success('Serial numbers saved successfully!');
+    }
+
+    public function checkSerialRequirements()
+    {
+        $missingSerials = [];
+
+        foreach ($this->cartItems as $key => $item) {
+            $product = Product::find($item['product_id']);
+
+            if ($product->track_serial) {
+                $currentSerials = count($item['serial_numbers'] ?? []);
+                if ($currentSerials < $item['quantity']) {
+                    $missingSerials[] = [
+                        'key' => $key,
+                        'name' => $item['name'],
+                        'required' => $item['quantity'],
+                        'current' => $currentSerials
+                    ];
+                }
+            }
+        }
+
+        return $missingSerials;
+    }
+
+    // Method to auto-generate serial numbers if needed
+    public function generateSerialNumbers()
+    {
+        $product = Product::find($this->serialProductId);
+        $missing = $this->requiredSerials - count($this->enteredSerials);
+
+        for ($i = 1; $i <= $missing; $i++) {
+            $serialNumber = $product->sku . '-' . date('Ymd') . '-' . str_pad($i, 3, '0', STR_PAD_LEFT);
+            $this->enteredSerials[] = $serialNumber;
+        }
+
+        $this->success("Generated {$missing} serial numbers automatically!");
+    }
+
+
+    public function addBulkSerials()
+    {
+        if (empty($this->bulkSerialInput)) {
+            $this->error('Please enter serial numbers.');
+            return;
+        }
+
+        // Split by newlines and clean up
+        $serials = array_filter(array_map('trim', explode("\n", $this->bulkSerialInput)));
+        $added = 0;
+        $duplicates = 0;
+
+        foreach ($serials as $serial) {
+            if (empty($serial)) continue;
+
+            // Check if already in current list
+            if (in_array($serial, $this->enteredSerials)) {
+                $duplicates++;
+                continue;
+            }
+
+            // Check if we have space
+            if (count($this->enteredSerials) >= $this->requiredSerials) {
+                break;
+            }
+
+            $this->enteredSerials[] = $serial;
+            $added++;
+        }
+
+        $this->bulkSerialInput = '';
+
+        if ($added > 0) {
+            $this->success("Added {$added} serial numbers!" . ($duplicates > 0 ? " ({$duplicates} duplicates skipped)" : ""));
+        } else {
+            $this->warning('No new serial numbers were added.');
+        }
+    }
+
+    public function hasSerialTrackingItems()
+    {
+        foreach ($this->cartItems as $item) {
+            $product = Product::find($item['product_id']);
+            if ($product->track_serial) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function validateCustomerForSerials()
+    {
+        if ($this->hasSerialTrackingItems() && !$this->selectedCustomer) {
+            return false;
+        }
+        return true;
+    }
+
+    public function selectWalkInCustomer()
+    {
+        // Don't allow walk-in customers for serial tracking items
+        if ($this->hasSerialTrackingItems()) {
+            $this->error('Walk-in customers not allowed for items requiring serial number tracking. Please create a customer record.');
+            return;
+        }
+
+        // Set a default walk-in customer or null for walk-in sales
+        $this->selectedCustomer = null; // or set to a default walk-in customer ID
+        $this->success('Walk-in customer selected');
     }
 
     // ===== SHIFT MANAGEMENT METHODS =====
@@ -427,6 +629,10 @@ class PointOfSale extends Component
             $this->cartItems[$cartKey]['quantity']++;
             $this->cartItems[$cartKey]['subtotal'] =
                 $this->cartItems[$cartKey]['quantity'] * $this->cartItems[$cartKey]['price'];
+
+            if ($product->track_serial) {
+                $this->cartItems[$cartKey]['serial_numbers'] = [];
+            }
         } else {
             $this->cartItems[$cartKey] = [
                 'product_id' => $product->id,
@@ -436,6 +642,8 @@ class PointOfSale extends Component
                 'quantity' => 1,
                 'available_stock' => $availableStock,
                 'subtotal' => $product->selling_price,
+                'track_serial' => $product->track_serial,
+                'serial_numbers' => [],
             ];
         }
 
@@ -462,6 +670,12 @@ class PointOfSale extends Component
 
             $this->cartItems[$cartKey]['quantity'] = $quantity;
             $this->cartItems[$cartKey]['subtotal'] = $this->cartItems[$cartKey]['price'] * $quantity;
+
+            if ($oldQuantity !== $quantity && ($this->cartItems[$cartKey]['track_serial'] ?? false)) {
+                $this->cartItems[$cartKey]['serial_numbers'] = [];
+                $this->warning('Quantity changed. Please re-enter serial numbers.');
+            }
+
             $this->updateCartTotals();
         }
     }
@@ -559,17 +773,35 @@ class PointOfSale extends Component
         if (!$this->checkActiveShift()) return;
 
         if (empty($this->cartItems)) {
-            $this->error('Cart is empty. Please add items first.');
+            $this->error('Cart is empty. Add items first.');
             return;
         }
 
-        if (!$this->selectedWarehouse) {
-            $this->error('Please select a warehouse.');
+        // Check if customer is selected for items requiring serial tracking
+        $serialTrackingItems = array_filter($this->cartItems, function ($item) {
+            $product = Product::find($item['product_id']);
+            return $product->track_serial;
+        });
+
+        if (!empty($serialTrackingItems) && !$this->selectedCustomer) {
+            $this->error('Please select a customer before proceeding. This sale contains items that require serial number tracking.');
             return;
         }
 
-        $this->paidAmount = $this->totalAmount;
-        $this->calculateChange();
+        // Check for missing serial numbers
+        $missingSerials = $this->checkSerialRequirements();
+        if (!empty($missingSerials)) {
+            $errorMessage = "Serial numbers required for:\n";
+            foreach ($missingSerials as $missing) {
+                $errorMessage .= "• {$missing['name']}: {$missing['current']}/{$missing['required']} entered\n";
+            }
+            $this->error($errorMessage);
+            return;
+        }
+
+        $this->paidAmount = '';
+        $this->paymentMethod = 'cash';
+        $this->saleNotes = '';
         $this->showPaymentModal = true;
     }
 
@@ -641,7 +873,7 @@ class PointOfSale extends Component
                 $product = Product::find($item['product_id']);
 
                 // Create sale item first
-                SaleItem::create([
+                $saleItem = SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $item['product_id'],
                     'product_name' => $item['name'],
@@ -651,6 +883,43 @@ class PointOfSale extends Component
                     'total_price' => $item['subtotal'],
                     'cost_price' => $product->cost_price ?? 0,
                 ]);
+
+                // Add this after creating the SaleItem in completeSale method:
+                if (!empty($item['serial_numbers'])) {
+                    $saleItem->serial_numbers = $item['serial_numbers'];
+                    $saleItem->save();
+
+                    // Create serial number records for each serial entered
+                    foreach ($item['serial_numbers'] as $serialNumber) {
+                        // Check if serial already exists
+                        $existingSerial = SerialNumber::where('serial_number', $serialNumber)
+                            ->where('product_id', $product->id)
+                            ->first();
+
+                        if ($existingSerial) {
+                            // Update existing serial
+                            $existingSerial->update([
+                                'status' => 'sold',
+                                'sold_to_customer_id' => $sale->customer_id,
+                                'sold_at' => $sale->completed_at,
+                                'warehouse_id' => $this->selectedWarehouse
+                            ]);
+                        } else {
+                            // Create new serial record
+                            SerialNumber::create([
+                                'product_id' => $product->id,
+                                'warehouse_id' => $this->selectedWarehouse,
+                                'serial_number' => $serialNumber,
+                                'status' => 'sold',
+                                'sold_to_customer_id' => $sale->customer_id,
+                                'sold_at' => $sale->completed_at,
+                                'warranty_expires_at' => $product->warranty_months ?
+                                    $sale->completed_at->addMonths($product->warranty_months) : null,
+                                'notes' => 'Created during sale #' . $sale->invoice_number
+                            ]);
+                        }
+                    }
+                }
 
                 // Optimistic update with version check
                 $snapshot = $inventorySnapshots[$item['product_id']];

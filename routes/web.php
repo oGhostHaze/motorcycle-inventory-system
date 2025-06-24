@@ -4,8 +4,10 @@ use App\Http\Controllers\InvoiceController; // Add this import
 use App\Http\Controllers\ReportsController;
 use App\Livewire\Admin\RecomputeManagement;
 use App\Livewire\Admin\UserManagement;
+use App\Livewire\Admin\WarrantyTracking;
 use App\Livewire\Dashboard;
 use App\Livewire\Inventory\CategoryManagement;
+use App\Livewire\Inventory\InventoryLocationManagement;
 use App\Livewire\Inventory\LowStockAlerts;
 use App\Livewire\Inventory\ProductManagement;
 use App\Livewire\Inventory\StockAdjustments;
@@ -26,6 +28,8 @@ use App\Livewire\Sales\ShiftManagement;
 use Illuminate\Support\Facades\Route;
 
 
+
+
 Route::get('/', function () {
     return redirect()->route('login');
 });
@@ -41,6 +45,10 @@ Route::middleware([
 
     // Admin Routes - Only for admin users
     Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
+
+        Route::get('/warranty-tracking', WarrantyTracking::class)
+            ->name('warranty-tracking');
+
         Route::get('/users', UserManagement::class)->name('users');
 
         Route::get('/recompute', RecomputeManagement::class)->name('recompute');
@@ -88,6 +96,7 @@ Route::middleware([
         Route::get('/stock-movements', StockMovements::class)->name('stock-movements');
         Route::get('/low-stock-alerts', LowStockAlerts::class)->name('low-stock-alerts');
         Route::get('/stock-adjustments', StockAdjustments::class)->name('stock-adjustments');
+        Route::get('/locations', InventoryLocationManagement::class)->name('locations');
     });
 
     // Sales Routes - For users with process_sales permission
@@ -151,7 +160,8 @@ Route::middleware([
     });
 
     // Additional Admin Routes
-    Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () { // Add to the admin middleware group
+
         Route::get('/settings', function () {
             return view('placeholder', ['title' => 'System Settings', 'message' => 'Coming Soon']);
         })->name('settings');

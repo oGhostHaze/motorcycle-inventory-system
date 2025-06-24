@@ -189,6 +189,8 @@
                             link="{{ route('inventory.low-stock-alerts') }}" />
                         <x-mary-menu-item title="Warehouses" icon="o-building-office"
                             link="{{ route('inventory.warehouses') }}" />
+                        <x-mary-menu-item title="Inventory Locations" icon="o-map-pin"
+                            link="{{ route('inventory.locations') }}" />
                     </x-mary-menu-sub>
                 @endif
 
@@ -201,6 +203,8 @@
                             link="{{ route('sales.history') }}" />
                         <x-mary-menu-item title="Returns & Exchanges" icon="o-arrow-uturn-left"
                             link="{{ route('sales.returns') }}" />
+                        <x-mary-menu-item title="Warranty Tracking" icon="o-shield-check"
+                            link="{{ route('admin.warranty-tracking') }}" />
                         <x-mary-menu-item title="Shift Management" icon="o-clock"
                             link="{{ route('sales.shifts') }}" />
                         <x-mary-menu-item title="Customers" icon="o-users" link="{{ route('sales.customers') }}" />

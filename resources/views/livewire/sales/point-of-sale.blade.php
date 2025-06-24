@@ -104,7 +104,19 @@
                         <x-mary-button icon="o-currency-dollar" wire:click="openBulkPriceSelection"
                             class="btn-xs btn-outline" :disabled="!$currentShift" label="Bulk Price" />
                     @endif
-                </div>
+                </div>{{-- Add this before the cart items section --}}
+                @if ($this->hasSerialTrackingItems() && !$selectedCustomer)
+                    <div class="p-3 mb-4 border rounded-lg bg-warning/10 border-warning/20">
+                        <div class="flex items-center gap-2">
+                            <x-heroicon-o-exclamation-triangle class="w-5 h-5 text-warning" />
+                            <div class="text-sm">
+                                <p class="font-medium text-warning">Customer Required</p>
+                                <p class="text-warning/80">This cart contains items that require serial number tracking.
+                                    Please select a customer to continue.</p>
+                            </div>
+                        </div>
+                    </div>
+                @endif
                 @if (count($cartItems) > 0)
                     <div class="space-y-3">
                         @foreach ($cartItems as $key => $item)
@@ -113,6 +125,26 @@
                                     <div class="font-medium">{{ $item['name'] }}</div>
                                     <div class="text-sm text-base-500">{{ $item['sku'] }}</div>
                                 </div>
+
+
+                                {{-- Serial Number Status --}}
+                                @if ($item['track_serial'] ?? false)
+                                    <div class="mt-1 text-xs">
+                                        @php
+                                            $serialCount = count($item['serial_numbers'] ?? []);
+                                            $required = $item['quantity'];
+                                        @endphp
+                                        @if ($serialCount === $required)
+                                            <span class="text-success">✓ {{ $serialCount }}/{{ $required }}
+                                                serials</span>
+                                        @elseif(!$selectedCustomer)
+                                            <span class="text-error">⚠ Customer required for serials</span>
+                                        @else
+                                            <span class="text-warning">⚠ {{ $serialCount }}/{{ $required }}
+                                                serials</span>
+                                        @endif
+                                    </div>
+                                @endif
 
                                 {{-- Quantity Controls --}}
                                 <div class="flex items-center gap-2">
@@ -126,6 +158,20 @@
                                         wire:click="updateQuantity('{{ $key }}', {{ $item['quantity'] + 1 }})"
                                         class="btn-xs btn-ghost" :disabled="!$currentShift" />
                                 </div>
+
+
+                                {{-- Serial Button --}}
+                                @if ($item['track_serial'] ?? false)
+                                    @if ($selectedCustomer)
+                                        <x-mary-button icon="o-qr-code"
+                                            wire:click="openSerialModal('{{ $key }}')"
+                                            class="btn-xs {{ count($item['serial_numbers'] ?? []) === $item['quantity'] ? 'btn-success' : 'btn-warning' }}"
+                                            :disabled="!$currentShift" title="Enter Serial Numbers" />
+                                    @else
+                                        <x-mary-button icon="o-qr-code" class="btn-xs btn-error btn-disabled" disabled
+                                            title="Select customer first to enter serial numbers" />
+                                    @endif
+                                @endif
 
                                 {{-- Price with selection button --}}
                                 <div class="w-32">
@@ -154,8 +200,8 @@
                         <div class="flex gap-2 pt-4 border-t">
                             <x-mary-button label="Clear Cart" wire:click="clearCart" class="btn-ghost btn-sm"
                                 :disabled="!$currentShift" />
-                            <x-mary-button label="Hold Sale" wire:click="openHoldSaleModal" class="btn-warning btn-sm"
-                                :disabled="!$currentShift" />
+                            <x-mary-button label="Hold Sale" wire:click="openHoldSaleModal"
+                                class="btn-warning btn-sm" :disabled="!$currentShift" />
                             <x-mary-button label="Held Sales" wire:click="openHeldSalesModal" class="btn-info btn-sm"
                                 :disabled="!$currentShift" />
                         </div>
@@ -178,32 +224,40 @@
         <div class="space-y-4 lg:col-span-4">
             {{-- Customer Selection --}}
             <x-mary-card title="Customer" class="{{ !$currentShift ? 'opacity-50' : '' }}">
-                <div class="space-y-3">
-                    @if ($selectedCustomer)
-                        @php $customer = \App\Models\Customer::find($selectedCustomer) @endphp
-                        <div class="p-3 border rounded-lg bg-primary/10">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <div class="font-medium">{{ $customer->name }}</div>
-                                    <div class="text-sm text-base-600">{{ $customer->email }}</div>
-                                </div>
-                                <x-mary-button icon="o-x-mark" wire:click="$set('selectedCustomer', null)"
-                                    class="btn-xs btn-ghost" :disabled="!$currentShift" />
-                            </div>
-                        </div>
-                    @else
-                        <div class="text-center text-base-500">
-                            <p>Walk-in Customer</p>
-                        </div>
-                    @endif
-
-                    <div class="flex gap-2">
-                        <x-mary-button label="Search Customer" wire:click="openSearchCustomerModal"
-                            class="flex-1 btn-outline btn-sm" :disabled="!$currentShift" />
-                        <x-mary-button label="New Customer" wire:click="openCustomerModal"
-                            class="flex-1 btn-primary btn-sm" :disabled="!$currentShift" />
+                @if ($this->hasSerialTrackingItems())
+                    <div class="p-2 mb-3 text-xs border rounded bg-info/10 border-info/20 text-info">
+                        <x-heroicon-o-information-circle class="inline w-4 h-4 mr-1" />
+                        Customer selection required for serial tracking
                     </div>
-                </div>
+                @endif
+
+                @if ($selectedCustomer)
+                    @php $customer = \App\Models\Customer::find($selectedCustomer) @endphp
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="font-medium">{{ $customer->name }}</div>
+                                @if ($customer->email)
+                                    <div class="text-sm text-base-500">{{ $customer->email }}</div>
+                                @endif
+                                @if ($customer->phone)
+                                    <div class="text-sm text-base-500">{{ $customer->phone }}</div>
+                                @endif
+                            </div>
+                            <x-mary-button icon="o-x-mark" wire:click="$set('selectedCustomer', null)"
+                                class="btn-xs btn-ghost" :disabled="!$currentShift" />
+                        </div>
+                    </div>
+                @else
+                    <div class="space-y-2">
+                        <x-mary-button label="Search Customer" wire:click="openSearchCustomerModal"
+                            class="w-full btn-outline" :disabled="!$currentShift" />
+                        <x-mary-button label="New Customer" wire:click="openCustomerModal" class="w-full btn-primary"
+                            :disabled="!$currentShift" />
+                        <x-mary-button label="Walk-in Customer" wire:click="selectWalkInCustomer"
+                            class="w-full btn-ghost" :disabled="!$currentShift || $this->hasSerialTrackingItems()" />
+                    </div>
+                @endif
             </x-mary-card>
 
             {{-- Order Summary --}}
@@ -257,8 +311,18 @@
             </x-mary-card>
 
             {{-- Checkout Button --}}
+            @php
+                $canCheckout = count($cartItems) > 0 && $currentShift && $this->validateCustomerForSerials();
+            @endphp
+
             <x-mary-button label="Process Payment" wire:click="openPaymentModal" class="w-full btn-primary btn-lg"
-                :disabled="count($cartItems) === 0 || !$currentShift" />
+                :disabled="!$canCheckout" />
+
+            @if (!$this->validateCustomerForSerials())
+                <p class="mt-1 text-xs text-center text-error">
+                    Customer required for serial tracking items
+                </p>
+            @endif
         </div>
     </div>
 
@@ -827,6 +891,84 @@
             <x-mary-button label="New Sale" wire:click="startNewSale" class="btn-success" />
         </x-slot:actions>
     </x-mary-modal>
+
+    {{-- Serial Number Entry Modal --}}
+    <x-mary-modal wire:model="showSerialModal" title="Enter Serial Numbers" persistent box-class="w-11/12 max-w-2xl">
+        <div class="space-y-4">
+            <div class="text-sm text-gray-600">
+                Enter {{ $requiredSerials }} serial number(s) for this product.
+                Current: {{ count($enteredSerials) }}/{{ $requiredSerials }}
+            </div>
+
+            {{-- Serial input --}}
+            <div class="flex gap-2">
+                <x-mary-input wire:model="serialInput" placeholder="Scan or enter serial number"
+                    wire:keydown.enter="addSerialNumber" class="flex-1"
+                    hint="Enter any serial number - will be created if doesn't exist" />
+                <x-mary-button label="Add" wire:click="addSerialNumber" class="btn-primary" />
+            </div>
+
+            {{-- Bulk entry section --}}
+            <div class="pt-4 border-t">
+                <h4 class="mb-2 text-sm font-medium">Bulk Entry (Optional)</h4>
+                <x-mary-textarea wire:model="bulkSerialInput"
+                    placeholder="Enter multiple serial numbers, one per line&#10;SN001&#10;SN002&#10;SN003"
+                    rows="3" class="text-sm" />
+                <div class="flex gap-2 mt-2">
+                    <x-mary-button label="Add All" wire:click="addBulkSerials" class="btn-sm btn-outline" />
+                    <span class="self-center text-xs text-gray-500">
+                        Remaining: {{ $requiredSerials - count($enteredSerials) }}
+                    </span>
+                </div>
+            </div>
+
+            {{-- Quick actions --}}
+            <div class="flex gap-2">
+                @if (count($enteredSerials) < $requiredSerials)
+                    <x-mary-button label="Auto Generate" wire:click="generateSerialNumbers"
+                        class="btn-sm btn-outline" />
+                @endif
+                @if (count($enteredSerials) > 0)
+                    <x-mary-button label="Clear All" wire:click="$set('enteredSerials', [])"
+                        class="btn-sm btn-ghost" />
+                @endif
+            </div>
+
+            {{-- Entered serials list --}}
+            @if (count($enteredSerials) > 0)
+                <div class="space-y-2">
+                    <h4 class="font-medium">Entered Serial Numbers:</h4>
+                    <div class="p-2 space-y-1 overflow-y-auto border rounded max-h-40">
+                        @foreach ($enteredSerials as $index => $serial)
+                            <div class="flex items-center justify-between p-2 rounded bg-gray-50">
+                                <span class="font-mono text-sm">{{ $serial }}</span>
+                                <x-mary-button wire:click="removeSerialNumber({{ $index }})"
+                                    class="text-red-500 btn-xs btn-ghost" icon="o-trash" />
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            {{-- Progress indicator --}}
+            <div class="w-full h-2 bg-gray-200 rounded-full">
+                <div class="h-2 transition-all duration-300 rounded-full bg-primary"
+                    style="width: {{ count($enteredSerials) > 0 ? (count($enteredSerials) / $requiredSerials) * 100 : 0 }}%">
+                </div>
+            </div>
+        </div>
+
+        <x-slot:actions>
+            <x-mary-button label="Cancel" wire:click="$set('showSerialModal', false)" />
+            @if (count($enteredSerials) === $requiredSerials)
+                <x-mary-button label="Save Serials" wire:click="saveSerialNumbers" class="btn-primary" />
+            @else
+                <x-mary-button label="Save Serials" class="btn-primary btn-disabled" disabled />
+            @endif
+        </x-slot:actions>
+    </x-mary-modal>
+
+
 
     {{-- Barcode Input Focus Script --}}
     <script>

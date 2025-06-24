@@ -2,17 +2,18 @@
 
 namespace App\Livewire\Inventory;
 
-use App\Models\Product;
 use App\Models\Category;
-use App\Models\Subcategory;
-use App\Models\ProductBrand;
-use App\Models\Warehouse;
 use App\Models\Inventory;
-use Livewire\Component;
-use Livewire\WithPagination;
-use Livewire\WithFileUploads;
-use Mary\Traits\Toast;
+use App\Models\InventoryLocation;
+use App\Models\Product;
+use App\Models\ProductBrand;
+use App\Models\Subcategory;
+use App\Models\Warehouse;
 use Illuminate\Support\Str;
+use Livewire\Component;
+use Livewire\WithFileUploads;
+use Livewire\WithPagination;
+use Mary\Traits\Toast;
 
 class ProductManagement extends Component
 {
@@ -69,6 +70,9 @@ class ProductManagement extends Component
     public $subcategoriesSearchable;
     public $brandsSearchable;
 
+
+    public $availableLocations = [];
+
     protected $rules = [
         'name' => 'required|string|max:255',
         'sku' => 'required|string|max:100|unique:products,sku',
@@ -84,6 +88,19 @@ class ProductManagement extends Component
     {
         $this->loadWarehouses();
         $this->loadSearchableOptions();
+        $this->loadAvailableLocations();
+    }
+
+    public function loadAvailableLocations()
+    {
+        $this->availableLocations = InventoryLocation::active()
+            ->ordered()
+            ->get(['id', 'code', 'name'])
+            ->map(fn($loc) => [
+                'id' => $loc->id,
+                'label' => $loc->name
+            ])
+            ->toArray();
     }
 
     public function loadWarehouses()
@@ -94,7 +111,7 @@ class ProductManagement extends Component
                 'warehouse_id' => $warehouse->id,
                 'warehouse_name' => $warehouse->name,
                 'quantity' => 0,
-                'location' => '',
+                'inventory_location_id' => null,
             ];
         }
     }
@@ -250,7 +267,7 @@ class ProductManagement extends Component
                 'warehouse_id' => $inventory->warehouse_id,
                 'warehouse_name' => $inventory->warehouse->name,
                 'quantity' => $inventory->quantity_on_hand,
-                'location' => $inventory->location ?? '',
+                'inventory_location_id' => $inventory->inventory_location_id,
             ];
         }
 
@@ -347,7 +364,7 @@ class ProductManagement extends Component
                         ],
                         [
                             'quantity_on_hand' => $stock['quantity'],
-                            'location' => $stock['location'],
+                            'inventory_location_id' => $stock['inventory_location_id'],
                         ]
                     );
                 }
