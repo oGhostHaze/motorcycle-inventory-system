@@ -62,7 +62,7 @@
                                 @endif
                             </div>
                         </td>
-                        <td>{{ $product->brand?->name ?? 'No Brand' }}</td>
+                        <td>{{ $product->brand?->name ?? '' }}</td>
                         <td>
                             <x-mary-badge value="{{ $product->total_stock ?? 0 }}"
                                 class="badge-{{ ($product->total_stock ?? 0) > 0 ? 'success' : 'error' }}" />
@@ -369,7 +369,7 @@
                             @if ($selectedProduct->subcategory)
                                 <div><strong>Subcategory:</strong> {{ $selectedProduct->subcategory->name }}</div>
                             @endif
-                            <div><strong>Brand:</strong> {{ $selectedProduct->brand?->name ?? 'No brand' }}</div>
+                            <div><strong>Brand:</strong> {{ $selectedProduct->brand?->name ?? '' }}</div>
                             <div><strong>Status:</strong>
                                 <x-mary-badge value="{{ ucfirst($selectedProduct->status) }}"
                                     class="badge-{{ $selectedProduct->status === 'active' ? 'success' : 'warning' }}" />
