@@ -52,12 +52,12 @@ class FreshInventorySeeder extends Seeder
                 $data[] = [
                     'description' => trim($row[0]),
                     'category' => trim($row[1]),
-                    'available_qty' => !empty(trim($row[3])) ? (int) trim($row[5]) : 0,
-                    'cost' => !empty(trim($row[4])) ? (float) trim($row[2]) : 0,
-                    'wholesale_price' => !empty(trim($row[5])) ? (float) trim($row[3]) : 0,
-                    'price' => !empty(trim($row[6])) ? (float) trim($row[4]) : 0,
-                    'alt_price1' => !empty(trim($row[7])) ? (float) trim($row[6]) : null,
-                    'alt_price2' => !empty(trim($row[8])) ? (float) trim($row[7]) : null,
+                    'available_qty' => !empty(trim($row[2])) ? (int) trim($row[2]) : 0,
+                    'cost' => !empty(trim($row[3])) ? (float) trim($row[3]) : 0,
+                    'wholesale_price' => !empty(trim($row[4])) ? (float) trim($row[4]) : 0,
+                    'price' => !empty(trim($row[5])) ? (float) trim($row[5]) : 0,
+                    'alt_price1' => !empty(trim($row[6])) ? (float) trim($row[6]) : null,
+                    'alt_price2' => !empty(trim($row[7])) ? (float) trim($row[7]) : null,
                 ];
             }
         }
