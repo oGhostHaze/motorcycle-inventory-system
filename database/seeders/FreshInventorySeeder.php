@@ -5,10 +5,6 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use App\Models\Category;
-use App\Models\Subcategory;
-use App\Models\ProductBrand;
-use App\Models\MotorcycleBrand;
-use App\Models\MotorcycleModel;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Models\Inventory;
@@ -16,33 +12,33 @@ use App\Models\Inventory;
 class FreshInventorySeeder extends Seeder
 {
     /**
-     * Fresh seeder with barcode-based unique slugs
+     * Simplified seeder for Excel data with Description, Category, Cost, Wholesale Price, Price, Available Qty, Alt Price 1, Alt Price 2
      */
     public function run(): void
     {
-        $this->command->info('🚀 Starting Fresh Inventory Seeder with Barcode Slugs...');
+        $this->command->info('🚀 Starting Simplified Inventory Seeder...');
 
         DB::transaction(function () {
             $this->processCSVData();
         });
 
-        $this->command->info('✅ Fresh Inventory Seeder completed successfully!');
+        $this->command->info('✅ Simplified Inventory Seeder completed successfully!');
     }
 
     private function processCSVData(): void
     {
-        $csvPath = database_path('seeders/INVENTORY.csv');
+        $csvPath = database_path('seeders/INVENTORY2.csv');
 
         if (!file_exists($csvPath)) {
-            throw new \Exception("INVENTORY.csv not found at: {$csvPath}");
+            throw new \Exception("INVENTORY2.csv not found at: {$csvPath}");
         }
 
         $csvData = $this->readCSV($csvPath);
         $this->command->info("📄 Read " . count($csvData) . " products from CSV");
 
-        $this->seedMasterData($csvData);
-        $this->seedAllProducts($csvData);
-        $this->seedProductInventory();
+        $this->seedCategories($csvData);
+        $this->seedProducts($csvData);
+        $this->seedProductInventory($csvData);
     }
 
     private function readCSV($path): array
@@ -52,13 +48,16 @@ class FreshInventorySeeder extends Seeder
         $headers = fgetcsv($file); // Skip headers
 
         while (($row = fgetcsv($file)) !== false) {
-            if (count($row) >= 5) {
+            if (count($row) >= 8) {
                 $data[] = [
-                    'brand' => trim($row[0]),
-                    'description' => trim($row[1]),
-                    'category' => trim($row[2]),
-                    'subcategory' => trim($row[3]),
-                    'motorcycle' => trim($row[4]),
+                    'description' => trim($row[0]),
+                    'category' => trim($row[1]),
+                    'cost' => !empty(trim($row[2])) ? (float) trim($row[2]) : 0,
+                    'wholesale_price' => !empty(trim($row[3])) ? (float) trim($row[3]) : 0,
+                    'price' => !empty(trim($row[4])) ? (float) trim($row[4]) : 0,
+                    'available_qty' => !empty(trim($row[5])) ? (int) trim($row[5]) : 0,
+                    'alt_price1' => !empty(trim($row[6])) ? (float) trim($row[6]) : null,
+                    'alt_price2' => !empty(trim($row[7])) ? (float) trim($row[7]) : null,
                 ];
             }
         }
@@ -67,29 +66,17 @@ class FreshInventorySeeder extends Seeder
         return $data;
     }
 
-    private function seedMasterData($csvData): void
+    private function seedCategories($csvData): void
     {
-        $this->command->info('📂 Seeding master data...');
+        $this->command->info('📂 Seeding categories...');
 
-        // Brands
-        $brands = array_unique(array_column($csvData, 'brand'));
-        foreach ($brands as $brand) {
-            if (!empty($brand)) {
-                ProductBrand::firstOrCreate(['name' => $brand], [
-                    'slug' => \Str::slug($brand),
-                    'description' => "{$brand} motorcycle parts brand",
-                    'is_active' => true,
-                ]);
-            }
-        }
-
-        // Categories
         $categories = array_unique(array_column($csvData, 'category'));
-        foreach ($categories as $index => $category) {
-            if (!empty($category)) {
-                Category::firstOrCreate(['name' => $category], [
-                    'slug' => \Str::slug($category),
-                    'description' => "Category for {$category} products",
+
+        foreach ($categories as $index => $categoryName) {
+            if (!empty($categoryName)) {
+                Category::firstOrCreate(['name' => $categoryName], [
+                    'slug' => \Str::slug($categoryName),
+                    'description' => "Category for {$categoryName} products",
                     'icon' => 'o-archive-box',
                     'sort_order' => $index + 1,
                     'is_active' => true,
@@ -97,117 +84,55 @@ class FreshInventorySeeder extends Seeder
             }
         }
 
-        // Subcategories
-        $subcatMap = [];
-        foreach ($csvData as $row) {
-            if (!empty($row['category']) && !empty($row['subcategory'])) {
-                $subcatMap[$row['category']][] = $row['subcategory'];
-            }
-        }
-
-        foreach ($subcatMap as $categoryName => $subcategories) {
-            $category = Category::where('name', $categoryName)->first();
-            if ($category) {
-                foreach (array_unique($subcategories) as $index => $subcategory) {
-                    Subcategory::firstOrCreate([
-                        'name' => $subcategory,
-                        'category_id' => $category->id
-                    ], [
-                        'slug' => \Str::slug($subcategory),
-                        'description' => "Subcategory for {$subcategory}",
-                        'sort_order' => $index + 1,
-                        'is_active' => true,
-                    ]);
-                }
-            }
-        }
-
-        // Motorcycle Brands
-        $motorcycleBrands = ['YAMAHA', 'HONDA', 'SUZUKI', 'KAWASAKI', 'UNIVERSAL'];
-        foreach ($motorcycleBrands as $brand) {
-            MotorcycleBrand::firstOrCreate(['name' => $brand], [
-                'slug' => \Str::slug($brand),
-                'description' => "{$brand} motorcycle manufacturer",
-                'is_active' => true,
-            ]);
-        }
-
-        // Motorcycles
-        $motorcycles = array_unique(array_column($csvData, 'motorcycle'));
-        foreach ($motorcycles as $motorcycle) {
-            if (!empty($motorcycle)) {
-                $brand = MotorcycleBrand::where('name', 'UNIVERSAL')->first();
-                MotorcycleModel::firstOrCreate(['name' => $motorcycle], [
-                    'brand_id' => $brand->id,
-                    'slug' => \Str::slug($motorcycle),
-                    'engine_type' => '4-stroke',
-                    'year_from' => 2010,
-                    'year_to' => 2025,
-                    'is_active' => true,
-                ]);
-            }
-        }
-
-        $this->command->info('✅ Master data seeded');
+        $this->command->info('✅ Categories seeded');
     }
 
-    private function seedAllProducts($csvData): void
+    private function seedProducts($csvData): void
     {
-        $this->command->info('📦 Seeding products with unique barcode slugs...');
+        $this->command->info('📦 Seeding products...');
 
         $counter = 1;
         $processed = 0;
 
         foreach ($csvData as $row) {
-            $brand = ProductBrand::where('name', $row['brand'])->first();
-            $category = Category::where('name', $row['category'])->first();
-            $subcategory = Subcategory::where('name', $row['subcategory'])
-                ->where('category_id', $category?->id)->first();
-
-            if (!$brand || !$category || !$subcategory) {
-                $this->command->warn("⚠️ Skipping: {$row['description']} - missing relationships");
+            if (empty($row['description'])) {
                 continue;
             }
 
-            // CRITICAL: Generate barcode and slug together
+            $category = Category::where('name', $row['category'])->first();
+
+            // Generate unique identifiers
             $barcode = '8901234' . str_pad($counter, 5, '0', STR_PAD_LEFT);
-            $uniqueSlug = \Str::slug($row['description']) . '-' . \Str::slug($row['brand']) . '-' . $barcode;
+            $sku = 'PRD-' . str_pad($counter, 6, '0', STR_PAD_LEFT);
+            $uniqueSlug = \Str::slug($row['description']) . '-' . $counter;
 
-            // Debug output
-            $this->command->info("Creating product #{$counter}: '{$row['description']}' with slug: '{$uniqueSlug}'");
+            $this->command->info("Creating product #{$counter}: '{$row['description']}'");
 
-            $product = Product::create([
-                'name' => $row['description'] . ($row['motorcycle'] ? ' ' . $row['motorcycle'] : ''),
+            Product::create([
+                'name' => $row['description'],
                 'slug' => $uniqueSlug,
-                'sku' => strtoupper(substr($row['brand'], 0, 3)) . '-' . str_pad($counter, 6, '0', STR_PAD_LEFT),
+                'sku' => $sku,
                 'barcode' => $barcode,
-                'description' => "Premium {$row['description']} from {$row['brand']} - Compatible with {$row['motorcycle']}",
-                'category_id' => $category->id,
-                'subcategory_id' => $subcategory->id,
-                'product_brand_id' => $brand->id,
+                'description' => $row['description'],
+                'category_id' => $category?->id,
+                'subcategory_id' => null,
+                'product_brand_id' => null,
                 'part_number' => 'PN-' . str_pad($counter, 6, '0', STR_PAD_LEFT),
-                'oem_number' => 'OEM-' . strtoupper($row['brand']) . '-' . $counter,
-                'cost_price' => 0,
-                'selling_price' => 0,
-                'wholesale_price' => 0,
+                'oem_number' => null,
+                'cost_price' => $row['cost'],
+                'selling_price' => $row['price'],
+                'wholesale_price' => $row['wholesale_price'],
+                'alt_price1' => $row['alt_price1'],
+                'alt_price2' => $row['alt_price2'],
+                'alt_price3' => null,
                 'warranty_months' => 12,
-                'min_stock_level' => rand(5, 25),
-                'max_stock_level' => rand(100, 500),
-                'reorder_point' => rand(10, 30),
-                'reorder_quantity' => rand(50, 200),
+                'min_stock_level' => 5,
+                'max_stock_level' => 500,
+                'reorder_point' => 10,
+                'reorder_quantity' => 50,
                 'status' => 'active',
-                'internal_notes' => "CSV Import - Compatible: {$row['motorcycle']}",
+                'internal_notes' => 'Imported from Excel',
             ]);
-
-            // Link motorcycle compatibility
-            $motorcycle = MotorcycleModel::where('name', $row['motorcycle'])->first();
-            if ($motorcycle) {
-                $product->compatibleModels()->attach($motorcycle->id, [
-                    'notes' => "Compatible with {$motorcycle->name}",
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
 
             $counter++;
             $processed++;
@@ -217,43 +142,38 @@ class FreshInventorySeeder extends Seeder
             }
         }
 
-        $this->command->info("✅ Created {$processed} products with unique slugs");
+        $this->command->info("✅ Created {$processed} products");
     }
 
-    private function seedProductInventory(): void
+    private function seedProductInventory($csvData): void
     {
         $this->command->info('📊 Creating inventory records...');
 
-        // Create warehouse if needed
-        $warehouse = Warehouse::first();
-        if (!$warehouse) {
-            $warehouse = Warehouse::create([
-                'name' => 'Main Warehouse',
-                'slug' => 'main-warehouse',
-                'code' => 'MW001',
-                'address' => 'Main Storage, Bacoor, Cavite',
-                'city' => 'Bacoor',
-                'manager_name' => 'Store Manager',
-                'phone' => '+63-917-123-4567',
-                'type' => 'main',
-                'is_active' => true,
-            ]);
-        }
+        // Get or create main warehouse
+        $warehouse = Warehouse::firstOrCreate(['code' => 'MW001'], [
+            'name' => 'Main Warehouse',
+            'slug' => 'main-warehouse',
+            'address' => 'Main Storage Location',
+            'city' => 'Main City',
+            'manager_name' => 'Store Manager',
+            'phone' => '+63-917-123-4567',
+            'type' => 'main',
+            'is_active' => true,
+        ]);
 
         $products = Product::all();
-        $locations = $this->getShelfLocations();
 
-        foreach ($products as $product) {
-            $onHand = 0;
-            $reserved = 0;
+        foreach ($products as $index => $product) {
+            // Find corresponding CSV data for this product
+            $csvRow = $csvData[$index] ?? null;
+            $quantity = $csvRow['available_qty'] ?? 0;
 
             Inventory::create([
                 'product_id' => $product->id,
                 'warehouse_id' => $warehouse->id,
-                'quantity_on_hand' => $onHand,
-                'quantity_reserved' => $reserved,
+                'quantity_on_hand' => $quantity,
+                'quantity_reserved' => 0,
                 'average_cost' => $product->cost_price,
-                'location' => $locations[array_rand($locations)],
                 'last_counted_at' => now()->subDays(rand(1, 30)),
             ]);
         }
@@ -264,11 +184,11 @@ class FreshInventorySeeder extends Seeder
     private function getShelfLocations(): array
     {
         $locations = [];
-        $sections = ['A', 'B', 'C', 'D', 'E'];
+        $sections = ['A', 'B', 'C', 'D'];
 
         foreach ($sections as $section) {
-            for ($row = 1; $row <= 8; $row++) {
-                for ($pos = 1; $pos <= 12; $pos++) {
+            for ($row = 1; $row <= 5; $row++) {
+                for ($pos = 1; $pos <= 8; $pos++) {
                     $locations[] = "Shelf-{$section}{$row}-{$pos}";
                 }
             }

@@ -14,20 +14,23 @@ class UserSeeder extends Seeder
         $users = [
             [
                 'name' => 'Admin User',
-                'email' => 'admin@motoshop.com',
+                'email' => 'admin@farmview.shop',
                 'password' => Hash::make('password'),
+                'role' => 'admin',
                 'email_verified_at' => now(),
             ],
             [
                 'name' => 'Manager User',
-                'email' => 'manager@motoshop.com',
+                'email' => 'manager@farmview.shop',
                 'password' => Hash::make('password'),
+                'role' => 'manager',
                 'email_verified_at' => now(),
             ],
             [
                 'name' => 'Cashier User',
-                'email' => 'cashier@motoshop.com',
+                'email' => 'cashier@farmview.shop',
                 'password' => Hash::make('password'),
+                'role' => 'cashier',
                 'email_verified_at' => now(),
             ],
         ];
