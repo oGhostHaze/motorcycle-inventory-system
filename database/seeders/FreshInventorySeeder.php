@@ -151,12 +151,12 @@ class FreshInventorySeeder extends Seeder
 
         // Get or create main warehouse
         $warehouse = Warehouse::firstOrCreate(['code' => 'MW001'], [
-            'name' => 'Main Warehouse',
-            'slug' => 'main-warehouse',
-            'address' => 'Main Storage Location',
-            'city' => 'Main City',
-            'manager_name' => 'Store Manager',
-            'phone' => '+63-917-123-4567',
+            'name' => 'Main Branch',
+            'slug' => 'main-branch',
+            'address' => 'Bacarra, Ilocos Norte',
+            'city' => 'Bacarra',
+            'manager_name' => 'Romar Lorenzo',
+            'phone' => '+63 919 920 1865',
             'type' => 'main',
             'is_active' => true,
         ]);
