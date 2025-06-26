@@ -27,6 +27,7 @@ class Dashboard extends Component
     public $totalCustomers = 0;
     public $pendingOrders = 0;
     public $totalInventoryValue = 0;
+    public $totalInventorySaleValue = 0;
     public $totalSuppliers = 0;
     public $totalCategories = 0;
     public $monthlyGrowth = 0;
@@ -102,6 +103,10 @@ class Dashboard extends Component
 
         $this->totalInventoryValue = Inventory::join('products', 'inventories.product_id', '=', 'products.id')
             ->selectRaw('SUM(inventories.quantity_on_hand * products.cost_price) as total_value')
+            ->value('total_value') ?? 0;
+
+        $this->totalInventorySaleValue = Inventory::join('products', 'inventories.product_id', '=', 'products.id')
+            ->selectRaw('SUM(inventories.quantity_on_hand * products.selling_price) as total_value')
             ->value('total_value') ?? 0;
 
         // Calculate monthly growth

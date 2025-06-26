@@ -136,8 +136,12 @@
                     <span class="font-semibold text-md">{{ number_format($totalProducts) }}</span>
                 </div>
                 <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-600">Inventory Value:</span>
+                    <span class="text-sm text-gray-600">Inventory Value (Cost):</span>
                     <span class="text-lg font-bold text-info">₱{{ number_format($totalInventoryValue, 2) }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-600">Inventory Value (Selling Price):</span>
+                    <span class="text-lg font-bold text-info">₱{{ number_format($totalInventorySaleValue, 2) }}</span>
                 </div>
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Active Suppliers:</span>
