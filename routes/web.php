@@ -184,7 +184,7 @@ Route::middleware([
 
     Route::middleware(['permission:manage_inventory'])->group(function () {
         Route::get('/products/export', function () {
-            $products = Product::with(['category', 'subcategory', 'brand', 'inventory.warehouse'])
+            $products = Product::with(['category', 'subcategory', 'inventory.warehouse'])
                 ->get()
                 ->map(function ($product) {
                     $totalStock = $product->inventory->sum('quantity_on_hand');
@@ -194,12 +194,8 @@ Route::middleware([
                         'Name' => $product->name,
                         'SKU' => $product->sku,
                         'Barcode' => $product->barcode,
-                        'Description' => $product->description,
                         'Category' => $product->category->name ?? '',
                         'Subcategory' => $product->subcategory->name ?? '',
-                        'Brand' => $product->brand->name ?? '',
-                        'Part Number' => $product->part_number,
-                        'OEM Number' => $product->oem_number,
                         'Cost Price' => $product->cost_price,
                         'Selling Price' => $product->selling_price,
                         'Wholesale Price' => $product->wholesale_price,
@@ -226,13 +222,12 @@ Route::middleware([
         Route::get('/products/template', function () {
             $template = collect([
                 [
+                    'ID' => '',
                     'Name' => 'Sample Product',
                     'SKU' => 'PRD-SAMPLE',
                     'Barcode' => '123456789012',
-                    'Description' => 'Sample product description',
                     'Category' => 'Electronics',
                     'Subcategory' => 'Computers',
-                    'Brand' => 'Sample Brand',
                     'Part Number' => 'PN-001',
                     'OEM Number' => 'OEM-001',
                     'Cost Price' => '100.00',
@@ -248,6 +243,7 @@ Route::middleware([
                     'Max Stock Level' => '100',
                     'Reorder Point' => '15',
                     'Reorder Quantity' => '50',
+                    'Total Stock' => '0',
                     'Status' => 'active',
                     'Internal Notes' => 'Sample internal notes',
                 ]

@@ -39,7 +39,6 @@ class SupplierManagement extends Component
     public $supplierProducts = [];
     public $selectedProduct = '';
     public $supplier_sku = '';
-    public $supplier_part_number = '';
     public $supplier_price = '';
     public $minimum_order_quantity = '';
     public $product_lead_time_days = '';
@@ -280,7 +279,6 @@ class SupplierManagement extends Component
         $this->validate([
             'selectedProduct' => 'required|exists:products,id',
             'supplier_sku' => 'nullable|string|max:100',
-            'supplier_part_number' => 'nullable|string|max:100',
             'supplier_price' => 'required|numeric|min:0',
             'minimum_order_quantity' => 'nullable|integer|min:1',
             'product_lead_time_days' => 'nullable|integer|min:1',
@@ -301,7 +299,6 @@ class SupplierManagement extends Component
                 'supplier_id' => $this->selectedSupplier->id,
                 'product_id' => $this->selectedProduct,
                 'supplier_sku' => $this->supplier_sku,
-                'supplier_part_number' => $this->supplier_part_number,
                 'supplier_price' => $this->supplier_price,
                 'minimum_order_quantity' => $this->minimum_order_quantity,
                 'lead_time_days' => $this->product_lead_time_days ?: $this->selectedSupplier->lead_time_days,
@@ -396,7 +393,6 @@ class SupplierManagement extends Component
         $this->reset([
             'selectedProduct',
             'supplier_sku',
-            'supplier_part_number',
             'supplier_price',
             'minimum_order_quantity',
             'product_lead_time_days',

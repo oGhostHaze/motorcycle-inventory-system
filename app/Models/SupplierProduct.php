@@ -13,7 +13,6 @@ class SupplierProduct extends Model
         'supplier_id',
         'product_id',
         'supplier_sku',
-        'supplier_part_number',
         'supplier_price',
         'minimum_order_quantity',
         'lead_time_days',

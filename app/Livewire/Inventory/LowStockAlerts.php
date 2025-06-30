@@ -109,7 +109,6 @@ class LowStockAlerts extends Component
             ->join('products', 'inventories.product_id', '=', 'products.id')
             ->join('warehouses', 'inventories.warehouse_id', '=', 'warehouses.id')
             ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
-            ->leftJoin('product_brands', 'products.product_brand_id', '=', 'product_brands.id')
             ->select([
                 'inventories.*',
                 'products.id as product_id',
@@ -120,7 +119,6 @@ class LowStockAlerts extends Component
                 'warehouses.id as warehouse_id',
                 'warehouses.name as warehouse_name',
                 'categories.name as category_name',
-                'product_brands.name as brand_name'
             ])
             ->where('products.status', 'active')
             ->where('warehouses.is_active', true)
@@ -128,7 +126,7 @@ class LowStockAlerts extends Component
             ->whereRaw('inventories.quantity_on_hand <= products.min_stock_level')
             ->with([
                 'product' => function ($query) {
-                    $query->with(['category', 'brand']);
+                    $query->with(['category']);
                 },
                 'warehouse'
             ]);

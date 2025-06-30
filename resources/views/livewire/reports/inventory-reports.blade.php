@@ -25,9 +25,6 @@
             {{-- Category Filter --}}
             <x-mary-select label="Category" wire:model.live="category" :options="$filterOptions['categories']" placeholder="All Categories" />
 
-            {{-- Brand Filter --}}
-            <x-mary-select label="Brand" wire:model.live="brand" :options="$filterOptions['brands']" placeholder="All Brands" />
-
             {{-- Stock Status Filter --}}
             @if (in_array($reportType, ['stock_levels']))
                 <x-mary-select label="Stock Status" wire:model.live="stockStatus" :options="$filterOptions['stockStatuses']" />

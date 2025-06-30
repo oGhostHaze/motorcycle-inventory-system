@@ -383,10 +383,7 @@ class PointOfSale extends Component
                 ->where(function ($query) {
                     $query->where('name', 'like', '%' . $this->searchProduct . '%')
                         ->orWhere('sku', 'like', '%' . $this->searchProduct . '%')
-                        ->orWhere('barcode', 'like', '%' . $this->searchProduct . '%')
-                        ->orWhereHas('brand', function ($brandQuery) {
-                            $brandQuery->where('name', 'like', '%' . $this->searchProduct . '%');
-                        });
+                        ->orWhere('barcode', 'like', '%' . $this->searchProduct . '%');
                 })
                 ->with(['inventory' => function ($query) {
                     $query->where('warehouse_id', $this->selectedWarehouse);

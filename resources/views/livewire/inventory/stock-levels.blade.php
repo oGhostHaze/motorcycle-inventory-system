@@ -266,15 +266,6 @@
                             @if ($selectedProduct->subcategory)
                                 <div><strong>Subcategory:</strong> {{ $selectedProduct->subcategory->name }}</div>
                             @endif
-                            @if ($selectedProduct->brand)
-                                <div><strong>Brand:</strong> {{ $selectedProduct->brand->name }}</div>
-                            @endif
-                            @if ($selectedProduct->part_number)
-                                <div><strong>Part Number:</strong> {{ $selectedProduct->part_number }}</div>
-                            @endif
-                            @if ($selectedProduct->oem_number)
-                                <div><strong>OEM Number:</strong> {{ $selectedProduct->oem_number }}</div>
-                            @endif
                         </div>
                     </div>
 
@@ -428,17 +419,10 @@
                 @endif
 
                 {{-- Product Specifications --}}
-                @if ($selectedProduct->description)
+                @if ($selectedProduct->warranty_months)
                     <div>
                         <h4 class="mb-3 text-lg font-semibold">Product Specifications</h4>
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            @if ($selectedProduct->description)
-                                <div>
-                                    <strong>Description:</strong>
-                                    <p class="mt-1 text-sm text-gray-600">{{ $selectedProduct->description }}</p>
-                                </div>
-                            @endif
-
                             <div class="space-y-2">
                                 @if ($selectedProduct->warranty_months)
                                     <div><strong>Warranty:</strong> {{ $selectedProduct->warranty_months }} months

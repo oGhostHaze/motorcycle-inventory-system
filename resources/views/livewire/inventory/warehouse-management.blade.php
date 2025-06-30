@@ -212,10 +212,6 @@
                                     <tr>
                                         <td>
                                             <div class="font-medium">{{ $inventory->product->name }}</div>
-                                            @if ($inventory->product->brand)
-                                                <div class="text-xs text-gray-500">
-                                                    {{ $inventory->product->brand->name }}</div>
-                                            @endif
                                         </td>
                                         <td>{{ $inventory->product->sku }}</td>
                                         <td>{{ $inventory->product->category->name ?? 'N/A' }}</td>

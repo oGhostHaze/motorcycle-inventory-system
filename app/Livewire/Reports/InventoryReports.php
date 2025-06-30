@@ -5,7 +5,6 @@ namespace App\Livewire\Reports;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\Category;
-use App\Models\ProductBrand;
 use App\Models\Warehouse;
 use App\Models\StockMovement;
 use App\Models\PurchaseOrder;
@@ -28,7 +27,6 @@ class InventoryReports extends Component
     // Filters
     public $warehouse = '';
     public $category = '';
-    public $brand = '';
     public $stockStatus = '';
     public $dateFrom = '';
     public $dateTo = '';
@@ -43,7 +41,6 @@ class InventoryReports extends Component
         'reportType',
         'warehouse',
         'category',
-        'brand',
         'stockStatus',
         'dateFrom',
         'dateTo',
@@ -72,11 +69,6 @@ class InventoryReports extends Component
         $this->loadReportData();
     }
 
-    public function updatedBrand()
-    {
-        $this->loadReportData();
-    }
-
     public function updatedStockStatus()
     {
         $this->loadReportData();
@@ -101,7 +93,6 @@ class InventoryReports extends Component
         $filterOptions = [
             'warehouses' => Warehouse::where('is_active', true)->get(['id', 'name']),
             'categories' => Category::get(['id', 'name']),
-            'brands' => ProductBrand::get(['id', 'name']),
             'stockStatuses' => [
                 ['id' => '', 'name' => 'All Stock Levels'],
                 ['id' => 'in_stock', 'name' => 'In Stock'],
@@ -150,7 +141,7 @@ class InventoryReports extends Component
 
     private function getStockLevelsReport()
     {
-        $query = Inventory::with(['product.category', 'product.brand', 'warehouse'])
+        $query = Inventory::with(['product.category', 'warehouse'])
             ->join('products', 'inventories.product_id', '=', 'products.id')
             ->select([
                 'inventories.*',
@@ -169,10 +160,6 @@ class InventoryReports extends Component
 
         if ($this->category) {
             $query->where('products.category_id', $this->category);
-        }
-
-        if ($this->brand) {
-            $query->where('products.product_brand_id', $this->brand);
         }
 
         if ($this->stockStatus) {
@@ -200,7 +187,7 @@ class InventoryReports extends Component
 
     private function getValuationReport()
     {
-        $query = Inventory::with(['product.category', 'product.brand', 'warehouse'])
+        $query = Inventory::with(['product.category', 'warehouse'])
             ->join('products', 'inventories.product_id', '=', 'products.id')
             ->selectRaw('
                 inventories.*,
@@ -220,10 +207,6 @@ class InventoryReports extends Component
 
         if ($this->category) {
             $query->where('products.category_id', $this->category);
-        }
-
-        if ($this->brand) {
-            $query->where('products.product_brand_id', $this->brand);
         }
 
         return $query->orderBy('cost_value', 'desc')
@@ -246,19 +229,13 @@ class InventoryReports extends Component
             });
         }
 
-        if ($this->brand) {
-            $query->whereHas('product', function ($q) {
-                $q->where('product_brand_id', $this->brand);
-            });
-        }
-
         return $query->latest('created_at')
             ->paginate($this->itemsPerPage);
     }
 
     private function getAgingReport()
     {
-        $query = Inventory::with(['product.category', 'product.brand', 'warehouse'])
+        $query = Inventory::with(['product.category', 'warehouse'])
             ->join('products', 'inventories.product_id', '=', 'products.id')
             ->leftJoin('stock_movements', function ($join) {
                 $join->on('inventories.product_id', '=', 'stock_movements.product_id')
@@ -360,7 +337,7 @@ class InventoryReports extends Component
 
     private function getReorderReport()
     {
-        $query = Inventory::with(['product.category', 'product.brand', 'warehouse'])
+        $query = Inventory::with(['product.category', 'warehouse'])
             ->join('products', 'inventories.product_id', '=', 'products.id')
             ->selectRaw('
                 inventories.*,
@@ -400,7 +377,6 @@ class InventoryReports extends Component
                 }
             })
             ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
-            ->leftJoin('product_brands', 'products.product_brand_id', '=', 'product_brands.id')
             ->whereBetween('sales.completed_at', [$this->dateFrom, $this->dateTo])
             ->where('sales.status', 'completed')
             ->when($this->warehouse, fn($q) => $q->where('sales.warehouse_id', $this->warehouse))
@@ -410,7 +386,6 @@ class InventoryReports extends Component
                 products.name as product_name,
                 products.sku,
                 categories.name as category_name,
-                product_brands.name as brand_name,
                 SUM(sale_items.quantity) as total_sold,
                 AVG(inventories.quantity_on_hand) as avg_inventory,
                 CASE
@@ -424,7 +399,7 @@ class InventoryReports extends Component
                     ELSE 365
                 END as days_to_sell
             ')
-            ->groupBy('products.id', 'products.name', 'products.sku', 'categories.name', 'product_brands.name')
+            ->groupBy('products.id', 'products.name', 'products.sku', 'categories.name')
             ->orderBy('turnover_ratio', 'desc');
 
         $results = $query->get();
@@ -581,7 +556,7 @@ class InventoryReports extends Component
 
     public function clearFilters()
     {
-        $this->reset(['warehouse', 'category', 'brand', 'stockStatus']);
+        $this->reset(['warehouse', 'category', 'stockStatus']);
         $this->success('Filters cleared!');
     }
 }

@@ -133,7 +133,6 @@ class StockLevels extends Component
         $inventory = Inventory::with([
             'product.category',
             'product.subcategory',
-            'product.brand',
             'warehouse'
         ])->find($inventoryId);
 
@@ -148,7 +147,6 @@ class StockLevels extends Component
         $this->selectedProduct = Product::with([
             'category',
             'subcategory',
-            'brand',
             'inventory.warehouse',
             'stockMovements' => function ($query) {
                 $query->orderBy('created_at', 'desc')->limit(10);

@@ -199,7 +199,7 @@ class WarehouseManagement extends Component
     {
         if (!$this->inventoryWarehouse) return;
 
-        $query = Inventory::with(['product.category', 'product.brand'])
+        $query = Inventory::with(['product.category'])
             ->where('warehouse_id', $this->inventoryWarehouse->id)
             ->where('quantity_on_hand', '>', 0);
 

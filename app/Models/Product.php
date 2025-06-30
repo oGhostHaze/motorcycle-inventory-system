@@ -6,7 +6,6 @@ use App\Models\Category;
 use App\Models\Inventory;
 use App\Models\MotorcycleModel;
 use App\Models\PriceHistory;
-use App\Models\ProductBrand;
 use App\Models\ProductReview;
 use App\Models\ProductVariant;
 use App\Models\Sale;
@@ -30,16 +29,12 @@ class Product extends Model
     protected $fillable = [
         'category_id',
         'subcategory_id',
-        'product_brand_id',
         'name',
         'slug',
         'sku',
         'barcode',
         'rfid_tag',
-        'description',
         'specifications',
-        'part_number',
-        'oem_number',
         'cost_price',
         'selling_price',
         'wholesale_price',
@@ -86,11 +81,6 @@ class Product extends Model
     public function subcategory()
     {
         return $this->belongsTo(Subcategory::class);
-    }
-
-    public function brand()
-    {
-        return $this->belongsTo(ProductBrand::class, 'product_brand_id');
     }
 
     public function variants()

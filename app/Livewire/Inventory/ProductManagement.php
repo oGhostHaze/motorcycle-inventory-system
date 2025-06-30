@@ -8,7 +8,6 @@ use App\Models\Category;
 use App\Models\Inventory;
 use App\Models\InventoryLocation;
 use App\Models\Product;
-use App\Models\ProductBrand;
 use App\Models\Subcategory;
 use App\Models\Warehouse;
 use Illuminate\Support\Str;
@@ -32,12 +31,8 @@ class ProductManagement extends Component
     public $name = '';
     public $sku = '';
     public $barcode = '';
-    public $description = '';
     public $category_id = null;
     public $subcategory_id = null;
-    public $product_brand_id = null;
-    public $part_number = '';
-    public $oem_number = '';
     public $cost_price = 0.00;
     public $selling_price = 0.00;
     public $wholesale_price = null;
@@ -59,7 +54,6 @@ class ProductManagement extends Component
     // Search and filters
     public $search = '';
     public $categoryFilter = '';
-    public $brandFilter = '';
     public $statusFilter = '';
     public $stockFilter = '';
 
@@ -71,7 +65,6 @@ class ProductManagement extends Component
     // For searchable dropdowns
     public $categoriesSearchable;
     public $subcategoriesSearchable;
-    public $brandsSearchable;
 
     public $showExportModal = false;
     public $showImportModal = false;
@@ -133,12 +126,6 @@ class ProductManagement extends Component
             ->orderBy('name')
             ->get();
 
-        // Load brands for searchable dropdown
-        $this->brandsSearchable = ProductBrand::where('is_active', true)
-            ->withCount('products')
-            ->orderBy('name')
-            ->get();
-
         // Load subcategories based on selected category
         $this->loadSubcategories();
     }
@@ -165,12 +152,11 @@ class ProductManagement extends Component
 
     public function render()
     {
-        $products = Product::with(['category', 'brand', 'inventory'])
+        $products = Product::with(['category', 'inventory'])
             ->when($this->search, fn($q) => $q->where('name', 'like', '%' . $this->search . '%')
                 ->orWhere('sku', 'like', '%' . $this->search . '%')
                 ->orWhere('barcode', 'like', '%' . $this->search . '%'))
             ->when($this->categoryFilter, fn($q) => $q->where('category_id', $this->categoryFilter))
-            ->when($this->brandFilter, fn($q) => $q->where('product_brand_id', $this->brandFilter))
             ->when($this->statusFilter, fn($q) => $q->where('status', $this->statusFilter))
             ->when($this->stockFilter, function ($q) {
                 switch ($this->stockFilter) {
@@ -192,7 +178,6 @@ class ProductManagement extends Component
             ->paginate(20);
 
         $categories = Category::where('is_active', true)->orderBy('name')->get();
-        $brands = ProductBrand::where('is_active', true)->orderBy('name')->get();
         $subcategories = collect();
 
         if ($this->category_id) {
@@ -204,7 +189,6 @@ class ProductManagement extends Component
 
         $filterOptions = [
             'categories' => $categories->map(fn($cat) => ['value' => $cat->id, 'label' => $cat->name]),
-            'brands' => $brands->map(fn($brand) => ['value' => $brand->id, 'label' => $brand->name]),
             'statuses' => [
                 ['value' => '', 'label' => 'All Status'],
                 ['value' => 'active', 'label' => 'Active'],
@@ -223,7 +207,6 @@ class ProductManagement extends Component
             'products' => $products,
             'categories' => $categories,
             'subcategories' => $subcategories,
-            'brands' => $brands,
             'filterOptions' => $filterOptions,
         ]);
     }
@@ -248,12 +231,8 @@ class ProductManagement extends Component
         $this->name = $product->name;
         $this->sku = $product->sku;
         $this->barcode = $product->barcode ?? '';
-        $this->description = $product->description ?? '';
         $this->category_id = $product->category_id;
         $this->subcategory_id = $product->subcategory_id;
-        $this->product_brand_id = $product->product_brand_id;
-        $this->part_number = $product->part_number ?? '';
-        $this->oem_number = $product->oem_number ?? '';
         $this->cost_price = $product->cost_price;
         $this->selling_price = $product->selling_price;
         $this->wholesale_price = $product->wholesale_price;
@@ -291,7 +270,6 @@ class ProductManagement extends Component
     {
         // Ensure selected options are included in searchable lists
         $selectedCategory = $this->category_id ? Category::find($this->category_id) : null;
-        $selectedBrand = $this->product_brand_id ? ProductBrand::find($this->product_brand_id) : null;
 
         $this->categoriesSearchable = Category::where('is_active', true)
             ->withCount('products')
@@ -299,14 +277,6 @@ class ProductManagement extends Component
             ->get()
             ->when($selectedCategory, function ($collection) use ($selectedCategory) {
                 return $collection->merge(collect([$selectedCategory]))->unique('id');
-            });
-
-        $this->brandsSearchable = ProductBrand::where('is_active', true)
-            ->withCount('products')
-            ->orderBy('name')
-            ->get()
-            ->when($selectedBrand, function ($collection) use ($selectedBrand) {
-                return $collection->merge(collect([$selectedBrand]))->unique('id');
             });
 
         $this->loadSubcategories();
@@ -325,12 +295,8 @@ class ProductManagement extends Component
                 'name' => $this->name,
                 'sku' => $this->sku,
                 'barcode' => $this->barcode,
-                'description' => $this->description,
                 'category_id' => $this->category_id,
                 'subcategory_id' => $this->subcategory_id,
-                'product_brand_id' => $this->product_brand_id,
-                'part_number' => $this->part_number,
-                'oem_number' => $this->oem_number,
                 'cost_price' => $this->cost_price,
                 'selling_price' => $this->selling_price,
                 'wholesale_price' => $this->wholesale_price,
@@ -400,7 +366,6 @@ class ProductManagement extends Component
         $product = Product::with([
             'category',
             'subcategory',
-            'brand',
             'inventory.warehouse',
             'stockMovements' => function ($query) {
                 $query->orderBy('created_at', 'desc')->limit(10);
@@ -419,7 +384,7 @@ class ProductManagement extends Component
 
     public function clearFilters()
     {
-        $this->reset(['search', 'categoryFilter', 'brandFilter', 'statusFilter', 'stockFilter']);
+        $this->reset(['search', 'categoryFilter', 'statusFilter', 'stockFilter']);
     }
 
     private function resetForm()
@@ -428,12 +393,8 @@ class ProductManagement extends Component
             'name',
             'sku',
             'barcode',
-            'description',
             'category_id',
             'subcategory_id',
-            'product_brand_id',
-            'part_number',
-            'oem_number',
             'cost_price',
             'selling_price',
             'wholesale_price',
@@ -454,12 +415,10 @@ class ProductManagement extends Component
         $this->status = 'active';
         $this->loadWarehouses();
     }
-
-
     public function exportProducts()
     {
         try {
-            $products = Product::with(['category', 'subcategory', 'brand', 'inventory.warehouse'])
+            $products = Product::with(['category', 'subcategory', 'inventory.warehouse'])
                 ->get()
                 ->map(function ($product) {
                     $totalStock = $product->inventory->sum('quantity_on_hand');
@@ -468,13 +427,9 @@ class ProductManagement extends Component
                         'ID' => $product->id,
                         'Name' => $product->name,
                         'SKU' => $product->sku,
-                        'Barcode' => $product->barcode, // Remove prefix here, handled in export class
-                        'Description' => $product->description,
+                        'Barcode' => $product->barcode,
                         'Category' => $product->category->name ?? '',
                         'Subcategory' => $product->subcategory->name ?? '',
-                        'Brand' => $product->brand->name ?? '',
-                        'Part Number' => $product->part_number,
-                        'OEM Number' => $product->oem_number,
                         'Cost Price' => $product->cost_price,
                         'Selling Price' => $product->selling_price,
                         'Wholesale Price' => $product->wholesale_price,
@@ -511,12 +466,8 @@ class ProductManagement extends Component
                     'Name' => 'Sample Product',
                     'SKU' => 'PRD-SAMPLE',
                     'Barcode' => '123456789012',
-                    'Description' => 'Sample product description',
                     'Category' => 'Electronics',
                     'Subcategory' => 'Computers',
-                    'Brand' => 'Sample Brand',
-                    'Part Number' => 'PN-001',
-                    'OEM Number' => 'OEM-001',
                     'Cost Price' => '100.00',
                     'Selling Price' => '150.00',
                     'Wholesale Price' => '130.00',

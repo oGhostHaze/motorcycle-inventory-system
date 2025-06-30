@@ -44,12 +44,8 @@ class ProductsExport implements FromCollection, WithHeadings, WithStyles, WithCo
             $product->name,
             $product->sku,
             $product->barcode ? "'" . $product->barcode : '', // Prefix with ' to force text format
-            $product->description,
             $product->category->name ?? '',
             $product->subcategory->name ?? '',
-            $product->brand->name ?? '',
-            $product->part_number,
-            $product->oem_number,
             $product->cost_price,
             $product->selling_price,
             $product->wholesale_price,
@@ -76,12 +72,8 @@ class ProductsExport implements FromCollection, WithHeadings, WithStyles, WithCo
             'Name',
             'SKU',
             'Barcode',
-            'Description',
             'Category',
             'Subcategory',
-            'Brand',
-            'Part Number',
-            'OEM Number',
             'Cost Price',
             'Selling Price',
             'Wholesale Price',
@@ -153,28 +145,24 @@ class ProductsExport implements FromCollection, WithHeadings, WithStyles, WithCo
             'B' => 30,  // Name
             'C' => 18,  // SKU
             'D' => 18,  // Barcode
-            'E' => 35,  // Description
-            'F' => 18,  // Category
-            'G' => 18,  // Subcategory
-            'H' => 18,  // Brand
-            'I' => 18,  // Part Number
-            'J' => 18,  // OEM Number
-            'K' => 15,  // Cost Price
-            'L' => 15,  // Selling Price
-            'M' => 15,  // Wholesale Price
-            'N' => 15,  // Alt Price 1
-            'O' => 15,  // Alt Price 2
-            'P' => 15,  // Alt Price 3
-            'Q' => 15,  // Warranty Months
-            'R' => 15,  // Track Serial
-            'S' => 15,  // Track Warranty
-            'T' => 15,  // Min Stock Level
-            'U' => 15,  // Max Stock Level
-            'V' => 15,  // Reorder Point
-            'W' => 15,  // Reorder Quantity
-            'X' => 15,  // Total Stock
-            'Y' => 12,  // Status
-            'Z' => 30,  // Internal Notes
+            'E' => 18,  // Category
+            'F' => 18,  // Subcategory
+            'G' => 15,  // Cost Price
+            'H' => 15,  // Selling Price
+            'I' => 15,  // Wholesale Price
+            'J' => 15,  // Alt Price 1
+            'K' => 15,  // Alt Price 2
+            'L' => 15,  // Alt Price 3
+            'M' => 15,  // Warranty Months
+            'N' => 15,  // Track Serial
+            'O' => 15,  // Track Warranty
+            'P' => 15,  // Min Stock Level
+            'Q' => 15,  // Max Stock Level
+            'R' => 15,  // Reorder Point
+            'S' => 15,  // Reorder Quantity
+            'T' => 15,  // Total Stock
+            'U' => 12,  // Status
+            'V' => 30,  // Internal Notes
         ];
     }
 
@@ -182,18 +170,18 @@ class ProductsExport implements FromCollection, WithHeadings, WithStyles, WithCo
     {
         return [
             'D' => NumberFormat::FORMAT_TEXT, // Barcode as text
-            'K' => NumberFormat::FORMAT_NUMBER_00, // Cost Price
-            'L' => NumberFormat::FORMAT_NUMBER_00, // Selling Price
-            'M' => NumberFormat::FORMAT_NUMBER_00, // Wholesale Price
-            'N' => NumberFormat::FORMAT_NUMBER_00, // Alt Price 1
-            'O' => NumberFormat::FORMAT_NUMBER_00, // Alt Price 2
-            'P' => NumberFormat::FORMAT_NUMBER_00, // Alt Price 3
-            'Q' => NumberFormat::FORMAT_NUMBER, // Warranty Months
-            'T' => NumberFormat::FORMAT_NUMBER, // Min Stock Level
-            'U' => NumberFormat::FORMAT_NUMBER, // Max Stock Level
-            'V' => NumberFormat::FORMAT_NUMBER, // Reorder Point
-            'W' => NumberFormat::FORMAT_NUMBER, // Reorder Quantity
-            'X' => NumberFormat::FORMAT_NUMBER, // Total Stock
+            'G' => NumberFormat::FORMAT_NUMBER_00, // Cost Price
+            'H' => NumberFormat::FORMAT_NUMBER_00, // Selling Price
+            'I' => NumberFormat::FORMAT_NUMBER_00, // Wholesale Price
+            'J' => NumberFormat::FORMAT_NUMBER_00, // Alt Price 1
+            'K' => NumberFormat::FORMAT_NUMBER_00, // Alt Price 2
+            'L' => NumberFormat::FORMAT_NUMBER_00, // Alt Price 3
+            'M' => NumberFormat::FORMAT_NUMBER, // Warranty Months
+            'P' => NumberFormat::FORMAT_NUMBER, // Min Stock Level
+            'Q' => NumberFormat::FORMAT_NUMBER, // Max Stock Level
+            'R' => NumberFormat::FORMAT_NUMBER, // Reorder Point
+            'S' => NumberFormat::FORMAT_NUMBER, // Reorder Quantity
+            'T' => NumberFormat::FORMAT_NUMBER, // Total Stock
         ];
     }
 }

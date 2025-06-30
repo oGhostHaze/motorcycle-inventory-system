@@ -176,9 +176,6 @@
                 <tr>
                     <td>
                         <strong>{{ $item->product->name }}</strong>
-                        @if ($item->product->description)
-                            <br><small>{{ Str::limit($item->product->description, 50) }}</small>
-                        @endif
                     </td>
                     <td>{{ $item->product->sku }}</td>
                     <td class="qty">{{ $item->quantity }}</td>

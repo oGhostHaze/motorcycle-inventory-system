@@ -533,7 +533,6 @@ class PurchaseOrderManagement extends Component
             'warehouse',
             'requestedBy',
             'items.product.category',
-            'items.product.brand'
         ]);
 
         $this->showDetailsModal = true;

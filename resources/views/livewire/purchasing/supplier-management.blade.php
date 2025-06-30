@@ -126,7 +126,7 @@
 
                 {{-- Notes --}}
                 @if ($supplier->notes)
-                    <div class="p-3 text-sm rounded-lg bg-base-200 mb-4">
+                    <div class="p-3 mb-4 text-sm rounded-lg bg-base-200">
                         <div class="text-gray-600">{{ Str::limit($supplier->notes, 100) }}</div>
                     </div>
                 @endif
@@ -286,14 +286,12 @@
         @if ($selectedSupplier)
             <div class="space-y-6">
                 {{-- Add Product Form --}}
-                <div class="p-4 rounded-lg bg-base-100 border">
+                <div class="p-4 border rounded-lg bg-base-100">
                     <h4 class="mb-4 font-semibold">Add Product to Supplier</h4>
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
                         <x-mary-select label="Product" :options="$products" wire:model="selectedProduct"
                             option-value="id" option-label="name" placeholder="Select a product" />
                         <x-mary-input label="Supplier SKU" wire:model="supplier_sku" placeholder="Supplier's SKU" />
-                        <x-mary-input label="Part Number" wire:model="supplier_part_number"
-                            placeholder="Supplier's part number" />
                     </div>
                     <div class="grid grid-cols-1 gap-4 mt-4 md:grid-cols-4">
                         <x-mary-input label="Supplier Price" wire:model="supplier_price" type="number"
@@ -335,7 +333,6 @@
                                                 <div class="text-sm text-gray-500">{{ $item['product']['sku'] }}</div>
                                             </td>
                                             <td>{{ $item['supplier_sku'] ?: '-' }}</td>
-                                            <td>{{ $item['supplier_part_number'] ?: '-' }}</td>
                                             <td>₱{{ number_format($item['supplier_price'], 2) }}</td>
                                             <td>{{ $item['minimum_order_quantity'] ?: '-' }}</td>
                                             <td>{{ $item['lead_time_days'] ?: '-' }} days</td>

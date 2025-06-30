@@ -5,7 +5,6 @@ namespace App\Imports;
 use App\Models\Product;
 use App\Models\Category;
 use App\Models\Subcategory;
-use App\Models\ProductBrand;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToCollection;
@@ -80,25 +79,12 @@ class ProductsImport implements ToCollection, WithHeadingRow, WithValidation
             );
         }
 
-        // Find or create brand
-        $brand = null;
-        if (!empty($row['brand'])) {
-            $brand = ProductBrand::firstOrCreate(
-                ['name' => trim($row['brand'])],
-                ['is_active' => true]
-            );
-        }
-
         return [
             'name' => trim($row['name']),
             'sku' => trim($row['sku']) ?: 'PRD-' . strtoupper(Str::random(8)),
-            'barcode' => $row['barcode'] ?? null,
-            'description' => $row['description'] ?? null,
+            'barcode' => $row['barcode'] ? $this->cleanBarcode($row['barcode']) : null,
             'category_id' => $category?->id,
             'subcategory_id' => $subcategory?->id,
-            'product_brand_id' => $brand?->id,
-            'part_number' => $row['part_number'] ?? null,
-            'oem_number' => $row['oem_number'] ?? null,
             'cost_price' => $this->parseDecimal($row['cost_price']),
             'selling_price' => $this->parseDecimal($row['selling_price']),
             'wholesale_price' => $this->parseDecimal($row['wholesale_price']),
@@ -116,6 +102,19 @@ class ProductsImport implements ToCollection, WithHeadingRow, WithValidation
             'internal_notes' => $row['internal_notes'] ?? null,
             'slug' => Str::slug($row['name']),
         ];
+    }
+
+    protected function cleanBarcode($barcode)
+    {
+        if (empty($barcode)) return null;
+
+        // Remove the leading apostrophe that was added for Excel text formatting
+        $cleaned = ltrim($barcode, "'");
+
+        // Remove any extra whitespace
+        $cleaned = trim($cleaned);
+
+        return $cleaned ?: null;
     }
 
     protected function createProduct($data, $index)

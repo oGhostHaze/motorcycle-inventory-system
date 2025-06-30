@@ -1,4 +1,3 @@
-{{-- Enhanced Product Management Form with MaryUI Choices --}}
 <div>
     {{-- Header Section - Update existing header with import/export buttons --}}
     <div class="flex items-center justify-between mb-6">
@@ -24,7 +23,7 @@
             </x-mary-button>
 
             {{-- Add Product Button --}}
-            <x-mary-button icon="o-plus" wire:click="create" class="btn-primary">
+            <x-mary-button icon="o-plus" wire:click="openModal" class="btn-primary">
                 Add Product
             </x-mary-button>
         </div>
@@ -36,9 +35,6 @@
             icon="o-magnifying-glass" />
 
         <x-mary-select label="Category" :options="$filterOptions['categories']" wire:model.live="categoryFilter" placeholder="All Categories"
-            option-value="value" option-label="label" />
-
-        <x-mary-select label="Brand" :options="$filterOptions['brands']" wire:model.live="brandFilter" placeholder="All Brands"
             option-value="value" option-label="label" />
 
         <x-mary-select label="Status" :options="$filterOptions['statuses']" wire:model.live="statusFilter" placeholder="All Status"
@@ -59,7 +55,6 @@
                 <tr>
                     <th>Product</th>
                     <th>Category</th>
-                    <th>Brand</th>
                     <th>Stock</th>
                     <th>Price</th>
                     <th>Status</th>
@@ -83,7 +78,6 @@
                                 @endif
                             </div>
                         </td>
-                        <td>{{ $product->brand?->name ?? '' }}</td>
                         <td>
                             <x-mary-badge value="{{ $product->total_stock ?? 0 }}"
                                 class="badge-{{ ($product->total_stock ?? 0) > 0 ? 'success' : 'error' }}" />
@@ -146,9 +140,6 @@
                         </x-mary-input>
                     </div>
                 </div>
-
-                <x-mary-textarea label="Description" wire:model="description" placeholder="Product description"
-                    rows="3" />
 
                 {{-- Enhanced Category Selection with Choices --}}
                 <div class="space-y-3">
@@ -217,50 +208,11 @@
                         </x-mary-choices-offline>
                     @endif
                 </div>
-
-                {{-- Enhanced Brand Selection with Choices --}}
-                <x-mary-choices-offline label="Brand" wire:model="product_brand_id" :options="$brandsSearchable"
-                    placeholder="Search and select brand..." searchable single clearable height="max-h-48"
-                    hint="Select product brand">
-
-                    {{-- Custom item display --}}
-                    @scope('item', $brand)
-                        <div class="flex items-center gap-3 p-2">
-                            <div class="flex-shrink-0">
-                                @if ($brand->logo ?? false)
-                                    <img src="{{ Storage::url($brand->logo) }}"
-                                        class="object-cover w-6 h-6 rounded-full" />
-                                @else
-                                    <x-mary-icon name="o-building-storefront" class="w-6 h-6 text-accent" />
-                                @endif
-                            </div>
-                            <div class="flex-1">
-                                <div class="font-medium">{{ $brand->name }}</div>
-                                @if ($brand->description)
-                                    <div class="text-sm text-gray-500">{{ $brand->description }}</div>
-                                @endif
-                            </div>
-                            <div class="flex-shrink-0">
-                                <x-mary-badge value="{{ $brand->products_count ?? 0 }}" class="badge-ghost badge-sm" />
-                            </div>
-                        </div>
-                    @endscope
-
-                    {{-- Custom selection display --}}
-                    @scope('selection', $brand)
-                        {{ $brand->name }}
-                    @endscope
-                </x-mary-choices-offline>
             </div>
 
             {{-- Pricing & Details --}}
             <div class="space-y-4">
                 <h4 class="text-lg font-semibold">Pricing & Details</h4>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <x-mary-input label="Part Number" wire:model="part_number" placeholder="Manufacturer part #" />
-                    <x-mary-input label="OEM Number" wire:model="oem_number" placeholder="OEM part #" />
-                </div>
 
                 <div class="grid grid-cols-2 gap-3">
                     <x-mary-input label="Cost Price" wire:model="cost_price" type="number" step="0.01"
@@ -390,7 +342,6 @@
                             @if ($selectedProduct->subcategory)
                                 <div><strong>Subcategory:</strong> {{ $selectedProduct->subcategory->name }}</div>
                             @endif
-                            <div><strong>Brand:</strong> {{ $selectedProduct->brand?->name ?? '' }}</div>
                             <div><strong>Status:</strong>
                                 <x-mary-badge value="{{ ucfirst($selectedProduct->status) }}"
                                     class="badge-{{ $selectedProduct->status === 'active' ? 'success' : 'warning' }}" />
@@ -420,17 +371,10 @@
                 </div>
 
                 {{-- Description & Specifications --}}
-                @if ($selectedProduct->description)
+                @if ($selectedProduct->warranty_months)
                     <div>
                         <h4 class="mb-3 text-lg font-semibold">Product Specifications</h4>
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            @if ($selectedProduct->description)
-                                <div>
-                                    <strong>Description:</strong>
-                                    <p class="mt-1 text-sm text-gray-600">{{ $selectedProduct->description }}</p>
-                                </div>
-                            @endif
-
                             <div class="space-y-2">
                                 @if ($selectedProduct->warranty_months)
                                     <div><strong>Warranty:</strong> {{ $selectedProduct->warranty_months }} months
@@ -517,7 +461,6 @@
             <div class="space-y-3">
                 <x-mary-checkbox label="Include Stock Levels" />
                 <x-mary-checkbox label="Include Pricing Information" />
-                <x-mary-checkbox label="Include Categories and Brands" />
                 <x-mary-checkbox label="Include Internal Notes" />
             </div>
 
@@ -562,7 +505,26 @@
             <div>
                 <h4 class="mb-3 text-lg font-semibold">Select File</h4>
                 <x-mary-file wire:model="importFile" accept=".xlsx,.xls,.csv">
-                    <img src="https://via.placeholder.com/150x100/f3f4f6/6b7280?text=Excel+File" alt="Excel file" />
+                    <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="50" height="50"
+                        viewBox="0 0 48 48">
+                        <path fill="#169154" d="M29,6H15.744C14.781,6,14,6.781,14,7.744v7.259h15V6z"></path>
+                        <path fill="#18482a" d="M14,33.054v7.202C14,41.219,14.781,42,15.743,42H29v-8.946H14z"></path>
+                        <path fill="#0c8045" d="M14 15.003H29V24.005000000000003H14z"></path>
+                        <path fill="#17472a" d="M14 24.005H29V33.055H14z"></path>
+                        <g>
+                            <path fill="#29c27f" d="M42.256,6H29v9.003h15V7.744C44,6.781,43.219,6,42.256,6z"></path>
+                            <path fill="#27663f" d="M29,33.054V42h13.257C43.219,42,44,41.219,44,40.257v-7.202H29z">
+                            </path>
+                            <path fill="#19ac65" d="M29 15.003H44V24.005000000000003H29z"></path>
+                            <path fill="#129652" d="M29 24.005H44V33.055H29z"></path>
+                        </g>
+                        <path fill="#0c7238"
+                            d="M22.319,34H5.681C4.753,34,4,33.247,4,32.319V15.681C4,14.753,4.753,14,5.681,14h16.638 C23.247,14,24,14.753,24,15.681v16.638C24,33.247,23.247,34,22.319,34z">
+                        </path>
+                        <path fill="#fff"
+                            d="M9.807 19L12.193 19 14.129 22.754 16.175 19 18.404 19 15.333 24 18.474 29 16.123 29 14.013 25.07 11.912 29 9.526 29 12.719 23.982z">
+                        </path>
+                    </svg>
                 </x-mary-file>
 
                 <div class="mt-2 text-sm text-gray-600">
