@@ -50,7 +50,6 @@ class FreshInventorySeeder extends Seeder
         while (($row = fgetcsv($file)) !== false) {
             if (count($row) >= 8) {
                 $data[] = [
-                    'description' => trim($row[0]),
                     'category' => trim($row[1]),
                     'available_qty' => !empty(trim($row[2])) ? (int) trim($row[2]) : 0,
                     'cost' => !empty(trim($row[3])) ? (float) trim($row[3]) : 0,
@@ -113,7 +112,6 @@ class FreshInventorySeeder extends Seeder
                 'slug' => $uniqueSlug,
                 'sku' => $sku,
                 'barcode' => $barcode,
-                'description' => $row['description'],
                 'category_id' => $category?->id,
                 'subcategory_id' => null,
                 'cost_price' => $row['cost'],
