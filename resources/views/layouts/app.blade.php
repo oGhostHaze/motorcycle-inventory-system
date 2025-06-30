@@ -252,6 +252,7 @@
                             link="{{ route('admin.backup') }}" />
                     </x-mary-menu-sub>
                 @endif
+                <x-mary-menu-item title="User Manual" icon="o-book-open" link="{{ route('user-manual') }}" />
 
                 {{-- System Info (for debugging - remove in production) --}}
                 @if ($isAdmin)

@@ -2,18 +2,19 @@
 
 namespace App\Livewire\Sales;
 
-use App\Models\Customer;
-use App\Models\Inventory;
-use App\Models\Product;
 use App\Models\Sale;
+use Mary\Traits\Toast;
+use App\Models\Product;
+use Livewire\Component;
+use App\Models\Customer;
 use App\Models\SaleItem;
+use App\Models\Inventory;
+use App\Models\Warehouse;
 use App\Models\SalesShift;
+use Livewire\Attributes\On;
 use App\Models\SerialNumber;
 use App\Models\StockMovement;
-use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
-use Livewire\Component;
-use Mary\Traits\Toast;
 
 class PointOfSale extends Component
 {
@@ -699,6 +700,7 @@ class PointOfSale extends Component
         $this->success('Item removed from cart!');
     }
 
+    #[On('clear-cart')]
     public function clearCart()
     {
         $this->cartItems = [];
@@ -765,6 +767,7 @@ class PointOfSale extends Component
         $this->changeAmount = max(0, $this->paidAmount - $this->totalAmount);
     }
 
+    #[On('open-payment-modal')]
     public function openPaymentModal()
     {
         if (!$this->checkActiveShift()) return;
@@ -1118,6 +1121,7 @@ class PointOfSale extends Component
     }
 
     // ===== BARCODE SCANNING METHODS =====
+    #[On('open-barcode-modal')]
     public function openBarcodeModal()
     {
         if (!$this->checkActiveShift()) return;
@@ -1372,6 +1376,7 @@ class PointOfSale extends Component
     }
 
     // ===== HOLD SALE METHODS =====
+    #[On('open-hold-sale-modal')]
     public function openHoldSaleModal()
     {
         if (!$this->checkActiveShift()) return;
@@ -1458,6 +1463,7 @@ class PointOfSale extends Component
             ->toArray();
     }
 
+    #[On('open-held-sales-modal')]
     public function openHeldSalesModal()
     {
         $this->loadHeldSales();

@@ -228,9 +228,9 @@
                     <div class="text-sm">
                         <p class="font-medium text-info">Important:</p>
                         <ul class="mt-1 space-y-1 text-gray-700">
-                            <li>• Count your cash drawer carefully before starting</li>
-                            <li>• This amount will be used to calculate your end-of-shift balance</li>
-                            <li>• You cannot process sales without an active shift</li>
+                            <li>Count your cash drawer carefully before starting</li>
+                            <li>This amount will be used to calculate your end-of-shift balance</li>
+                            <li>You cannot process sales without an active shift</li>
                         </ul>
                     </div>
                 </div>

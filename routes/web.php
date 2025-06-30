@@ -1,34 +1,35 @@
 <?php
 
-use App\Exports\ProductsExport;
-use App\Http\Controllers\InvoiceController; // Add this import
-use App\Http\Controllers\ReportsController;
-use App\Livewire\Admin\RecomputeManagement;
-use App\Livewire\Admin\UserManagement;
-use App\Livewire\Admin\WarrantyTracking;
+use App\Models\Product;
 use App\Livewire\Dashboard;
-use App\Livewire\Inventory\CategoryManagement;
-use App\Livewire\Inventory\InventoryLocationManagement;
-use App\Livewire\Inventory\LowStockAlerts;
-use App\Livewire\Inventory\ProductManagement;
-use App\Livewire\Inventory\StockAdjustments;
+use App\Exports\ProductsExport;
+use App\Livewire\Admin\UserManual;
+use App\Livewire\Sales\PointOfSale;
+use App\Livewire\Sales\SalesHistory;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Route;
+use App\Livewire\Admin\UserManagement;
+use App\Livewire\Reports\SalesReports;
 use App\Livewire\Inventory\StockLevels;
-use App\Livewire\Inventory\StockMovements;
-use App\Livewire\Inventory\WarehouseManagement;
-use App\Livewire\Purchasing\PurchaseOrderManagement;
-use App\Livewire\Purchasing\SupplierManagement;
+use App\Livewire\Sales\ShiftManagement;
+use App\Livewire\Admin\WarrantyTracking;
 use App\Livewire\Reports\CustomerReports;
+use App\Livewire\Sales\ReturnsManagement;
+use App\Livewire\Inventory\LowStockAlerts;
+use App\Livewire\Inventory\StockMovements;
 use App\Livewire\Reports\FinancialReports;
 use App\Livewire\Reports\InventoryReports;
-use App\Livewire\Reports\SalesReports;
 use App\Livewire\Sales\CustomerManagement;
-use App\Livewire\Sales\PointOfSale;
-use App\Livewire\Sales\ReturnsManagement;
-use App\Livewire\Sales\SalesHistory;
-use App\Livewire\Sales\ShiftManagement;
-use App\Models\Product;
-use Illuminate\Support\Facades\Route;
-use Maatwebsite\Excel\Facades\Excel;
+use App\Http\Controllers\ReportsController;
+use App\Livewire\Admin\RecomputeManagement;
+use App\Livewire\Inventory\StockAdjustments;
+use App\Livewire\Inventory\ProductManagement;
+use App\Livewire\Inventory\CategoryManagement;
+use App\Livewire\Inventory\WarehouseManagement;
+use App\Livewire\Purchasing\SupplierManagement;
+use App\Livewire\Purchasing\PurchaseOrderManagement;
+use App\Livewire\Inventory\InventoryLocationManagement;
+use App\Http\Controllers\InvoiceController; // Add this import
 
 
 
@@ -181,6 +182,7 @@ Route::middleware([
             return view('placeholder', ['title' => 'Database Backup', 'message' => 'Coming Soon']);
         })->name('backup');
     });
+    Route::get('/user-manual', UserManual::class)->name('user-manual');
 
     Route::middleware(['permission:manage_inventory'])->group(function () {
         Route::get('/products/export', function () {

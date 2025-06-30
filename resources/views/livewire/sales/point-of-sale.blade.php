@@ -296,20 +296,6 @@
                 </div>
             </x-mary-card>
 
-            {{-- Quick Cash Buttons --}}
-            <x-mary-card title="Quick Payment">
-                <div class="grid grid-cols-2 gap-2">
-                    <x-mary-button label="₱500" wire:click="setQuickCash(500)" class="btn-outline btn-sm" />
-                    <x-mary-button label="₱1000" wire:click="setQuickCash(1000)" class="btn-outline btn-sm" />
-                    <x-mary-button label="₱2000" wire:click="setQuickCash(2000)" class="btn-outline btn-sm" />
-                    <x-mary-button label="₱5000" wire:click="setQuickCash(5000)" class="btn-outline btn-sm" />
-                </div>
-                <div class="mt-4">
-                    <x-mary-button label="Exact Cash" wire:click="setExactCash" class="w-full btn-success btn-sm"
-                        :disabled="count($cartItems) === 0" />
-                </div>
-            </x-mary-card>
-
             {{-- Checkout Button --}}
             @php
                 $canCheckout = count($cartItems) > 0 && $currentShift && $this->validateCustomerForSerials();
