@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Inventory;
 
+use App\Exports\ProductsExport;
+use App\Imports\ProductsImport;
 use App\Models\Category;
 use App\Models\Inventory;
 use App\Models\InventoryLocation;
@@ -13,6 +15,7 @@ use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
+use Maatwebsite\Excel\Facades\Excel;
 use Mary\Traits\Toast;
 
 class ProductManagement extends Component
@@ -70,6 +73,12 @@ class ProductManagement extends Component
     public $subcategoriesSearchable;
     public $brandsSearchable;
 
+    public $showExportModal = false;
+    public $showImportModal = false;
+    public $importFile;
+    public $importType = 'new'; // 'new' or 'update'
+    public $importPreview = [];
+    public $showImportPreview = false;
 
     public $availableLocations = [];
 
@@ -444,5 +453,140 @@ class ProductManagement extends Component
         $this->alt_price3 = null;
         $this->status = 'active';
         $this->loadWarehouses();
+    }
+
+
+    public function exportProducts()
+    {
+        try {
+            $products = Product::with(['category', 'subcategory', 'brand', 'inventory.warehouse'])
+                ->get()
+                ->map(function ($product) {
+                    $totalStock = $product->inventory->sum('quantity_on_hand');
+
+                    return [
+                        'ID' => $product->id,
+                        'Name' => $product->name,
+                        'SKU' => $product->sku,
+                        'Barcode' => $product->barcode, // Remove prefix here, handled in export class
+                        'Description' => $product->description,
+                        'Category' => $product->category->name ?? '',
+                        'Subcategory' => $product->subcategory->name ?? '',
+                        'Brand' => $product->brand->name ?? '',
+                        'Part Number' => $product->part_number,
+                        'OEM Number' => $product->oem_number,
+                        'Cost Price' => $product->cost_price,
+                        'Selling Price' => $product->selling_price,
+                        'Wholesale Price' => $product->wholesale_price,
+                        'Alt Price 1' => $product->alt_price1,
+                        'Alt Price 2' => $product->alt_price2,
+                        'Alt Price 3' => $product->alt_price3,
+                        'Warranty Months' => $product->warranty_months,
+                        'Track Serial' => $product->track_serial ? 'Yes' : 'No',
+                        'Track Warranty' => $product->track_warranty ? 'Yes' : 'No',
+                        'Min Stock Level' => $product->min_stock_level,
+                        'Max Stock Level' => $product->max_stock_level,
+                        'Reorder Point' => $product->reorder_point,
+                        'Reorder Quantity' => $product->reorder_quantity,
+                        'Total Stock' => $totalStock,
+                        'Status' => $product->status,
+                        'Internal Notes' => $product->internal_notes,
+                    ];
+                });
+
+            $filename = 'products-export-' . now()->format('Y-m-d-H-i-s') . '.xlsx';
+
+            return Excel::download(new ProductsExport($products), $filename);
+        } catch (\Exception $e) {
+            $this->error('Export failed: ' . $e->getMessage());
+        }
+    }
+
+    public function downloadTemplate()
+    {
+        try {
+            $template = [
+                [
+                    'ID' => '', // Leave empty for new products
+                    'Name' => 'Sample Product',
+                    'SKU' => 'PRD-SAMPLE',
+                    'Barcode' => '123456789012',
+                    'Description' => 'Sample product description',
+                    'Category' => 'Electronics',
+                    'Subcategory' => 'Computers',
+                    'Brand' => 'Sample Brand',
+                    'Part Number' => 'PN-001',
+                    'OEM Number' => 'OEM-001',
+                    'Cost Price' => '100.00',
+                    'Selling Price' => '150.00',
+                    'Wholesale Price' => '130.00',
+                    'Alt Price 1' => '140.00',
+                    'Alt Price 2' => '145.00',
+                    'Alt Price 3' => '148.00',
+                    'Warranty Months' => '12',
+                    'Track Serial' => 'No',
+                    'Track Warranty' => 'Yes',
+                    'Min Stock Level' => '10',
+                    'Max Stock Level' => '100',
+                    'Reorder Point' => '15',
+                    'Reorder Quantity' => '50',
+                    'Total Stock' => '0', // For reference only
+                    'Status' => 'active',
+                    'Internal Notes' => 'Sample internal notes',
+                ]
+            ];
+
+            $filename = 'products-import-template.xlsx';
+
+            return Excel::download(new ProductsExport(collect($template)), $filename);
+        } catch (\Exception $e) {
+            $this->error('Template download failed: ' . $e->getMessage());
+        }
+    }
+
+    public function processImport()
+    {
+        $this->validate([
+            'importFile' => 'required|mimes:xlsx,xls,csv|max:10240', // 10MB max
+        ]);
+
+        try {
+            $import = new ProductsImport($this->importType === 'update');
+            Excel::import($import, $this->importFile);
+
+            $this->importPreview = $import->getPreviewData();
+            $this->showImportPreview = true;
+
+            $this->success('File processed successfully. Please review the preview below.');
+        } catch (\Exception $e) {
+            $this->error('Import failed: ' . $e->getMessage());
+        }
+    }
+
+    public function confirmImport()
+    {
+        try {
+            $import = new ProductsImport($this->importType === 'update');
+            Excel::import($import, $this->importFile);
+
+            $results = $import->getResults();
+
+            $this->success(
+                'Import completed! ' .
+                    'Created: ' . $results['created'] . ', ' .
+                    'Updated: ' . $results['updated'] . ', ' .
+                    'Errors: ' . $results['errors']
+            );
+
+            $this->resetImport();
+        } catch (\Exception $e) {
+            $this->error('Import failed: ' . $e->getMessage());
+        }
+    }
+
+    public function resetImport()
+    {
+        $this->reset(['importFile', 'importType', 'importPreview', 'showImportPreview']);
+        $this->showImportModal = false;
     }
 }

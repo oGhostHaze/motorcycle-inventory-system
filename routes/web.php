@@ -1,5 +1,6 @@
 <?php
 
+use App\Exports\ProductsExport;
 use App\Http\Controllers\InvoiceController; // Add this import
 use App\Http\Controllers\ReportsController;
 use App\Livewire\Admin\RecomputeManagement;
@@ -25,7 +26,13 @@ use App\Livewire\Sales\PointOfSale;
 use App\Livewire\Sales\ReturnsManagement;
 use App\Livewire\Sales\SalesHistory;
 use App\Livewire\Sales\ShiftManagement;
+use App\Models\Product;
 use Illuminate\Support\Facades\Route;
+use Maatwebsite\Excel\Facades\Excel;
+
+
+
+
 
 
 
@@ -173,5 +180,81 @@ Route::middleware([
         Route::get('/backup', function () {
             return view('placeholder', ['title' => 'Database Backup', 'message' => 'Coming Soon']);
         })->name('backup');
+    });
+
+    Route::middleware(['permission:manage_inventory'])->group(function () {
+        Route::get('/products/export', function () {
+            $products = Product::with(['category', 'subcategory', 'brand', 'inventory.warehouse'])
+                ->get()
+                ->map(function ($product) {
+                    $totalStock = $product->inventory->sum('quantity_on_hand');
+
+                    return [
+                        'ID' => $product->id,
+                        'Name' => $product->name,
+                        'SKU' => $product->sku,
+                        'Barcode' => $product->barcode,
+                        'Description' => $product->description,
+                        'Category' => $product->category->name ?? '',
+                        'Subcategory' => $product->subcategory->name ?? '',
+                        'Brand' => $product->brand->name ?? '',
+                        'Part Number' => $product->part_number,
+                        'OEM Number' => $product->oem_number,
+                        'Cost Price' => $product->cost_price,
+                        'Selling Price' => $product->selling_price,
+                        'Wholesale Price' => $product->wholesale_price,
+                        'Alt Price 1' => $product->alt_price1,
+                        'Alt Price 2' => $product->alt_price2,
+                        'Alt Price 3' => $product->alt_price3,
+                        'Warranty Months' => $product->warranty_months,
+                        'Track Serial' => $product->track_serial ? 'Yes' : 'No',
+                        'Track Warranty' => $product->track_warranty ? 'Yes' : 'No',
+                        'Min Stock Level' => $product->min_stock_level,
+                        'Max Stock Level' => $product->max_stock_level,
+                        'Reorder Point' => $product->reorder_point,
+                        'Reorder Quantity' => $product->reorder_quantity,
+                        'Total Stock' => $totalStock,
+                        'Status' => $product->status,
+                        'Internal Notes' => $product->internal_notes,
+                    ];
+                });
+
+            $filename = 'products-export-' . now()->format('Y-m-d-H-i-s') . '.xlsx';
+            return Excel::download(new ProductsExport($products), $filename);
+        })->name('products.export');
+
+        Route::get('/products/template', function () {
+            $template = collect([
+                [
+                    'Name' => 'Sample Product',
+                    'SKU' => 'PRD-SAMPLE',
+                    'Barcode' => '123456789012',
+                    'Description' => 'Sample product description',
+                    'Category' => 'Electronics',
+                    'Subcategory' => 'Computers',
+                    'Brand' => 'Sample Brand',
+                    'Part Number' => 'PN-001',
+                    'OEM Number' => 'OEM-001',
+                    'Cost Price' => '100.00',
+                    'Selling Price' => '150.00',
+                    'Wholesale Price' => '130.00',
+                    'Alt Price 1' => '140.00',
+                    'Alt Price 2' => '145.00',
+                    'Alt Price 3' => '148.00',
+                    'Warranty Months' => '12',
+                    'Track Serial' => 'No',
+                    'Track Warranty' => 'Yes',
+                    'Min Stock Level' => '10',
+                    'Max Stock Level' => '100',
+                    'Reorder Point' => '15',
+                    'Reorder Quantity' => '50',
+                    'Status' => 'active',
+                    'Internal Notes' => 'Sample internal notes',
+                ]
+            ]);
+
+            $filename = 'products-import-template.xlsx';
+            return Excel::download(new ProductsExport($template), $filename);
+        })->name('products.template');
     });
 });
