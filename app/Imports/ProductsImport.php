@@ -79,7 +79,7 @@ class ProductsImport implements ToCollection, WithHeadingRow, WithValidation
             );
         }
 
-        return [
+        $data = [
             'name' => trim($row['name']),
             'sku' => trim($row['sku']) ?: 'PRD-' . strtoupper(Str::random(8)),
             'barcode' => $row['barcode'] ? $this->cleanBarcode($row['barcode']) : null,
@@ -102,6 +102,13 @@ class ProductsImport implements ToCollection, WithHeadingRow, WithValidation
             'internal_notes' => $row['internal_notes'] ?? null,
             'slug' => Str::slug($row['name']),
         ];
+
+        // ADD THIS: Only include ID if it's provided and in update mode
+        if ($this->updateMode && !empty($row['id']) && is_numeric($row['id'])) {
+            $data['id'] = (int) $row['id'];
+        }
+
+        return $data;
     }
 
     protected function cleanBarcode($barcode)
@@ -119,6 +126,9 @@ class ProductsImport implements ToCollection, WithHeadingRow, WithValidation
 
     protected function createProduct($data, $index)
     {
+        // Remove ID from data for new products (auto-increment)
+        unset($data['id']);
+
         // Check if SKU already exists
         if (Product::where('sku', $data['sku'])->exists()) {
             throw new \Exception("SKU '{$data['sku']}' already exists");
@@ -139,8 +149,13 @@ class ProductsImport implements ToCollection, WithHeadingRow, WithValidation
     {
         $product = null;
 
-        // Try to find by SKU first, then by name
-        if (!empty($data['sku'])) {
+        // Try to find by ID first (if provided), then SKU, then name
+        if (isset($data['id']) && !empty($data['id'])) {
+            $product = Product::find($data['id']);
+            unset($data['id']); // Remove ID from update data to prevent conflicts
+        }
+
+        if (!$product && !empty($data['sku'])) {
             $product = Product::where('sku', $data['sku'])->first();
         }
 
