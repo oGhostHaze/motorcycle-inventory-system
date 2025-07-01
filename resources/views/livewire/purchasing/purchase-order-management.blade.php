@@ -137,9 +137,9 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="text-center py-8">
+                            <td colspan="9" class="py-8 text-center">
                                 <div class="flex flex-col items-center">
-                                    <x-heroicon-o-clipboard-document-list class="w-12 h-12 text-gray-400 mb-2" />
+                                    <x-heroicon-o-clipboard-document-list class="w-12 h-12 mb-2 text-gray-400" />
                                     <p class="text-gray-500">No purchase orders found</p>
                                     <x-mary-button label="Create First Purchase Order" wire:click="openModal"
                                         class="mt-4 btn-primary" />
@@ -186,7 +186,7 @@
                 </div>
 
                 @if (count($items) > 0)
-                    <div class="overflow-x-auto">
+                    <div>
                         <table class="table table-sm">
                             <thead>
                                 <tr>
@@ -201,9 +201,10 @@
                                 @foreach ($items as $index => $item)
                                     <tr>
                                         <td class="w-1/2">
-                                            <x-mary-select :options="$products"
+                                            <x-mary-choices-offline :options="$products"
                                                 wire:model="items.{{ $index }}.product_id" option-value="id"
-                                                option-label="name" placeholder="Select product" />
+                                                option-label="name" placeholder="Select product" single clearable
+                                                searchable />
                                         </td>
                                         <td>
                                             <x-mary-input wire:model="items.{{ $index }}.quantity"
@@ -341,7 +342,7 @@
                             <div class="flex justify-between">
                                 <span class="font-medium">Total Amount:</span>
                                 <span
-                                    class="font-bold text-lg">₱{{ number_format($viewingPO->total_amount, 2) }}</span>
+                                    class="text-lg font-bold">₱{{ number_format($viewingPO->total_amount, 2) }}</span>
                             </div>
                         </div>
                     </x-mary-card>
@@ -350,7 +351,7 @@
                     <x-mary-card title="Supplier & Warehouse">
                         <div class="space-y-4">
                             <div>
-                                <h5 class="font-medium mb-2">Supplier Information</h5>
+                                <h5 class="mb-2 font-medium">Supplier Information</h5>
                                 <div class="space-y-1 text-sm">
                                     <div><strong>Name:</strong> {{ $viewingPO->supplier->name }}</div>
                                     @if ($viewingPO->supplier->contact_person)
@@ -366,7 +367,7 @@
                             </div>
 
                             <div>
-                                <h5 class="font-medium mb-2">Warehouse</h5>
+                                <h5 class="mb-2 font-medium">Warehouse</h5>
                                 <div class="text-sm">
                                     <div><strong>Name:</strong> {{ $viewingPO->warehouse->name }}</div>
                                     @if ($viewingPO->warehouse->address)
