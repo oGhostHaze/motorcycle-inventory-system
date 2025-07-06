@@ -96,7 +96,7 @@
     </div>
 
     <!-- Main Content -->
-    <main class="flex-1 overflow-hidden">
+    <main class="flex-1">
         <div class="h-[calc(100vh-4rem)]">
             {{ $slot }}
         </div>
