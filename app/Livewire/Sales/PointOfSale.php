@@ -669,7 +669,7 @@ class PointOfSale extends Component
             $this->cartItems[$cartKey]['quantity'] = $quantity;
             $this->cartItems[$cartKey]['subtotal'] = $this->cartItems[$cartKey]['price'] * $quantity;
 
-            if ($oldQuantity !== $quantity && ($this->cartItems[$cartKey]['track_serial'] ?? false)) {
+            if ($this->cartItems[$cartKey]['track_serial'] ?? false) {
                 $this->cartItems[$cartKey]['serial_numbers'] = [];
                 $this->warning('Quantity changed. Please re-enter serial numbers.');
             }
