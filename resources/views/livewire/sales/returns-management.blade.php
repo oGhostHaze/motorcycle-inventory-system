@@ -246,7 +246,8 @@
                                 </thead>
                                 <tbody>
                                     @foreach ($returnItems as $index => $item)
-                                        <tr class="{{ $item['selected'] ? 'bg-primary/10' : '' }}">
+                                        <tr class="{{ $item['selected'] ? 'bg-primary/10' : '' }}"
+                                            wire:key="item-{{ $index }}">
                                             <td>
                                                 <x-mary-checkbox
                                                     wire:model.live="returnItems.{{ $index }}.selected" />
@@ -277,7 +278,7 @@
                                             </td>
                                             <td>₱{{ number_format($item['unit_price'], 2) }}</td>
                                             <td class="font-semibold">
-                                                ₱{{ number_format(($item['selected'] ? $item['quantity'] : 0) * $item['unit_price'], 2) }}
+                                                ₱{{ number_format(($item['selected'] ? (float) $item['quantity'] : 0) * (float) $item['unit_price'], 2) }}
                                             </td>
                                             <td>
                                                 @if ($item['selected'])

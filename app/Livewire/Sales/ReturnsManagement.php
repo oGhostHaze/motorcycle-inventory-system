@@ -3,17 +3,21 @@
 namespace App\Livewire\Sales;
 
 use App\Models\Sale;
-use App\Models\SaleReturn;
-use App\Models\SaleReturnItem;
-use App\Models\Product;
-use App\Models\Customer;
-use App\Models\Warehouse;
-use App\Models\Inventory;
-use App\Models\StockMovement;
-use Livewire\Component;
-use Livewire\WithPagination;
 use Mary\Traits\Toast;
+use App\Models\Product;
+use Livewire\Component;
+use App\Models\Customer;
+use App\Models\SaleItem;
+use App\Models\Inventory;
+use App\Models\Warehouse;
+use App\Models\SaleReturn;
+use App\Models\SalesShift;
 use Illuminate\Support\Str;
+use Livewire\WithPagination;
+use App\Models\StockMovement;
+use App\Models\SaleReturnItem;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ReturnsManagement extends Component
 {
@@ -60,8 +64,6 @@ class ReturnsManagement extends Component
         'returnNotes' => 'nullable|string|max:1000',
         'restockCondition' => 'required|in:good,damaged,defective',
         'returnItems' => 'required|array|min:1',
-        'returnItems.*.quantity' => 'required|integer|min:1',
-        'returnItems.*.reason' => 'required|string',
     ];
 
     public function mount()
@@ -389,7 +391,32 @@ class ReturnsManagement extends Component
 
     public function processReturn()
     {
-        $this->validate();
+        // Custom validation for selected items only
+        $selectedItems = collect($this->returnItems)
+            ->filter(fn($item) => $item['selected'])
+            ->values();
+
+        if ($selectedItems->isEmpty()) {
+            $this->error('Please select at least one item to return.');
+            return;
+        }
+
+        // Validate only selected items
+        $validationRules = [
+            'returnType' => 'required|in:refund,exchange,store_credit',
+            'returnReason' => 'required|string|max:255',
+            'returnNotes' => 'nullable|string|max:1000',
+            'restockCondition' => 'required|in:good,damaged,defective',
+        ];
+
+        // Add validation for selected items only
+        foreach ($selectedItems as $index => $item) {
+            $originalIndex = collect($this->returnItems)->search(fn($ri) => $ri === $item);
+            $validationRules["returnItems.{$originalIndex}.quantity"] = 'required|integer|min:1';
+            $validationRules["returnItems.{$originalIndex}.reason"] = 'required|string';
+        }
+
+        $this->validate($validationRules);
 
         $selectedItems = collect($this->returnItems)
             ->filter(fn($item) => $item['selected'] && $item['quantity'] > 0)
@@ -412,12 +439,11 @@ class ReturnsManagement extends Component
         }
 
         try {
-            \DB::transaction(function () use ($selectedItems, $activeShift) {
-                // Generate return number
-                $returnNumber = 'RET-' . now()->format('Ymd') . '-' . str_pad(SalesReturn::whereDate('created_at', now())->count() + 1, 4, '0', STR_PAD_LEFT);
-
+            // Generate return number
+            $returnNumber = 'RET-' . now()->format('Ymd') . '-' . str_pad(SaleReturn::whereDate('created_at', now())->count() + 1, 4, '0', STR_PAD_LEFT);
+            \DB::transaction(function () use ($selectedItems, $activeShift, $returnNumber) {
                 // Create return record
-                $return = SalesReturn::create([
+                $return = SaleReturn::create([
                     'return_number' => $returnNumber,
                     'sale_id' => $this->selectedSale->id,
                     'customer_id' => $this->selectedSale->customer_id,
@@ -449,7 +475,6 @@ class ReturnsManagement extends Component
                 // Update shift totals
                 $this->updateShiftTotals($activeShift, $return);
             });
-
             $this->success("Return {$returnNumber} created successfully and linked to current shift!");
             $this->showReturnModal = false;
             $this->resetReturnForm();
