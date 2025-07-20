@@ -24,8 +24,8 @@
                 placeholder="Search invoice, customer..." />
 
             <x-mary-select label="Customer" wire:model.live="customerFilter" :options="[
-                ['value' => '', 'label' => 'All Customers'],
-                ...$customers->map(fn($c) => ['value' => $c->id, 'label' => $c->name])->toArray(),
+                ['id' => '', 'name' => 'All Customers'],
+                ...$customers->map(fn($c) => ['id' => $c->id, 'name' => $c->name])->toArray(),
             ]" />
 
             <x-mary-select label="Status" wire:model.live="statusFilter" :options="$filterOptions['statuses']" />
@@ -35,8 +35,8 @@
 
         <div class="grid grid-cols-1 gap-4 mt-4 md:grid-cols-3">
             <x-mary-select label="Warehouse" wire:model.live="warehouseFilter" :options="[
-                ['value' => '', 'label' => 'All Warehouses'],
-                ...$warehouses->map(fn($w) => ['value' => $w->id, 'label' => $w->name])->toArray(),
+                ['id' => '', 'name' => 'All Warehouses'],
+                ...$warehouses->map(fn($w) => ['id' => $w->id, 'name' => $w->name])->toArray(),
             ]" />
 
             <x-mary-select label="Date Range" wire:model.live="dateFilter" :options="$filterOptions['dates']" />

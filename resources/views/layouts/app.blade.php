@@ -109,6 +109,8 @@
             </div>
         </x-slot:actions>
     </x-mary-nav>
+
+
     {{-- Use MaryUI Main Layout --}}
     <x-mary-main with-nav>
 
@@ -177,6 +179,8 @@
                 @if ($isAdmin || $isManager || $isWarehouseStaff)
                     <x-mary-menu-sub title="Inventory" icon="o-cube">
                         <x-mary-menu-item title="Products" icon="o-cube" link="{{ route('inventory.products') }}" />
+                        <x-mary-menu-item title="Services" icon="o-wrench-screwdriver"
+                            link="{{ route('inventory.services') }}" />
                         <x-mary-menu-item title="Categories" icon="o-tag"
                             link="{{ route('inventory.categories') }}" />
                         <x-mary-menu-item title="Stock Levels" icon="o-chart-bar"
@@ -271,6 +275,10 @@
             {{ $slot }}
         </x-slot:content>
     </x-mary-main>
+
+
+    {{-- Mobile Bottom Navigation --}}
+    <x-mobile-bottom-nav />
 
     @stack('scripts')
     @stack('modals')

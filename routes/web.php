@@ -95,6 +95,10 @@ Route::middleware([
         })->name('recompute.run');
     });
 
+    Route::get('/inventory/services', \App\Livewire\Admin\ServiceManagement::class)
+        ->name('inventory.services')
+        ->middleware('permission:manage_inventory');
+
     // Inventory Management Routes - For users with manage_inventory permission
     Route::middleware(['permission:manage_inventory'])->prefix('inventory')->name('inventory.')->group(function () {
         Route::get('/products', ProductManagement::class)->name('products');

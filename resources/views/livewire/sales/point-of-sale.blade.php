@@ -94,6 +94,45 @@
                         </div>
                     @endif
                 </div>
+                <div class="mt-4">
+                    <div class="flex gap-2">
+                        <div class="flex-1">
+                            <x-mary-input wire:model.live.debounce.300ms="searchService"
+                                placeholder="Search services (labor, diagnostics, etc.)" icon="o-wrench-screwdriver"
+                                class="w-full" />
+                        </div>
+                        <x-mary-button wire:click="openServiceModal" icon="o-plus" class="btn-primary"
+                            tooltip="Browse Services" />
+                    </div>
+
+                    {{-- Service Search Results --}}
+                    @if (!empty($serviceResults))
+                        <div class="mt-2 border rounded-lg shadow-sm bg-base-100 border-base-300">
+                            @foreach ($serviceResults as $service)
+                                <div class="flex items-center justify-between p-3 border-b last:border-b-0 border-base-200 hover:bg-base-50"
+                                    wire:click="addServiceToCart({{ $service->id }})" role="button">
+                                    <div class="flex-1">
+                                        <div class="font-medium">{{ $service->name }}</div>
+                                        <div class="text-sm text-base-content/60">
+                                            {{ $service->code }} • {{ $service->service_type }} •
+                                            {{ $service->formatted_duration }}
+                                        </div>
+                                        @if ($service->description)
+                                            <div class="text-xs text-base-content/50">
+                                                {{ Str::limit($service->description, 50) }}</div>
+                                        @endif
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="font-bold text-primary">{{ $service->formatted_price }}</div>
+                                        @if ($service->requires_parts)
+                                            <div class="text-xs badge badge-warning">Requires Parts</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
             </x-mary-card>
             {{-- Shopping Cart --}}
             <x-mary-card class="{{ !$currentShift ? 'opacity-50' : '' }}">
@@ -119,16 +158,28 @@
                 @endif
                 @if (count($cartItems) > 0)
                     <div class="space-y-3">
-                        @foreach ($cartItems as $key => $item)
+                        @foreach ($cartItems as $cartKey => $item)
                             <div class="flex items-center gap-4 p-3 border rounded-lg bg-base-50">
                                 <div class="flex-1">
-                                    <div class="font-medium">{{ $item['name'] }}</div>
-                                    <div class="text-sm text-base-500">{{ $item['sku'] }}</div>
+                                    <div class="flex items-center gap-2">
+                                        {{-- Item Type Icon --}}
+                                        @if ($item['item_type'] === 'service')
+                                            <x-mary-icon name="o-wrench-screwdriver" class="w-4 h-4 text-primary" />
+                                        @else
+                                            <x-mary-icon name="o-cube" class="w-4 h-4 text-secondary" />
+                                        @endif
+                                        <div class="font-medium">{{ $item['name'] }}</div>
+                                    </div>
+                                    <div class="text-sm text-base-500">{{ $item['code'] }}</div>
+
+                                    {{-- Stock Info for Products Only --}}
+                                    @if ($item['item_type'] === 'product' && isset($item['available_stock']))
+                                        <div class="text-xs text-base-400">Stock: {{ $item['available_stock'] }}</div>
+                                    @endif
                                 </div>
 
-
-                                {{-- Serial Number Status --}}
-                                @if ($item['track_serial'] ?? false)
+                                {{-- Serial Number Status (Products Only) --}}
+                                @if ($item['item_type'] === 'product' && isset($item['track_serial']) && $item['track_serial'])
                                     <div class="mt-1 text-xs">
                                         @php
                                             $serialCount = count($item['serial_numbers'] ?? []);
@@ -149,22 +200,21 @@
                                 {{-- Quantity Controls --}}
                                 <div class="flex items-center gap-2">
                                     <x-mary-button icon="o-minus"
-                                        wire:click="updateQuantity('{{ $key }}', {{ $item['quantity'] - 1 }})"
-                                        class="btn-xs btn-ghost" :disabled="!$currentShift" />
-                                    <x-mary-input wire:model.blur="cartItems.{{ $key }}.quantity"
-                                        wire:change="updateQuantity('{{ $key }}', $event.target.value)"
+                                        wire:click="decreaseQuantity('{{ $cartKey }}')" class="btn-xs btn-ghost"
+                                        :disabled="!$currentShift" />
+                                    <x-mary-input wire:model.blur="cartItems.{{ $cartKey }}.quantity"
+                                        wire:change="updateCartItemQuantity('{{ $cartKey }}', $event.target.value)"
                                         class="w-16 text-center input-xs" :disabled="!$currentShift" />
                                     <x-mary-button icon="o-plus"
-                                        wire:click="updateQuantity('{{ $key }}', {{ $item['quantity'] + 1 }})"
-                                        class="btn-xs btn-ghost" :disabled="!$currentShift" />
+                                        wire:click="increaseQuantity('{{ $cartKey }}')" class="btn-xs btn-ghost"
+                                        :disabled="!$currentShift || ($item['item_type'] === 'product' && $item['quantity'] >= ($item['available_stock'] ?? 0))" />
                                 </div>
 
-
-                                {{-- Serial Button --}}
-                                @if ($item['track_serial'] ?? false)
+                                {{-- Serial Button (Products Only) --}}
+                                @if ($item['item_type'] === 'product' && isset($item['track_serial']) && $item['track_serial'])
                                     @if ($selectedCustomer)
                                         <x-mary-button icon="o-qr-code"
-                                            wire:click="openSerialModal('{{ $key }}')"
+                                            wire:click="openSerialModal('{{ $cartKey }}')"
                                             class="btn-xs {{ count($item['serial_numbers'] ?? []) === $item['quantity'] ? 'btn-success' : 'btn-warning' }}"
                                             :disabled="!$currentShift" title="Enter Serial Numbers" />
                                     @else
@@ -173,17 +223,26 @@
                                     @endif
                                 @endif
 
-                                {{-- Price with selection button --}}
-                                <div class="w-32">
-                                    <div class="flex items-center gap-1">
-                                        <x-mary-input wire:model.blur="cartItems.{{ $key }}.price"
-                                            wire:change="updatePrice('{{ $key }}', $event.target.value)"
-                                            class="text-right input-xs" :disabled="!$currentShift" />
-                                        <x-mary-button icon="o-ellipsis-vertical"
-                                            wire:click="openPriceSelection('{{ $key }}')"
-                                            class="btn-xs btn-ghost" :disabled="!$currentShift" title="Select price" />
+                                {{-- Price with selection button (Products Only) --}}
+                                @if ($item['item_type'] === 'product')
+                                    <div class="w-32">
+                                        <div class="flex items-center gap-1">
+                                            <x-mary-input wire:model.blur="cartItems.{{ $cartKey }}.price"
+                                                wire:change="updatePrice('{{ $cartKey }}', $event.target.value)"
+                                                class="text-right input-xs" :disabled="!$currentShift" />
+                                            <x-mary-button icon="o-ellipsis-vertical"
+                                                wire:click="openPriceSelection('{{ $cartKey }}')"
+                                                class="btn-xs btn-ghost" :disabled="!$currentShift" title="Select price" />
+                                        </div>
                                     </div>
-                                </div>
+                                @else
+                                    {{-- Services have fixed price --}}
+                                    <div class="w-32">
+                                        <div class="text-sm text-right text-base-500">
+                                            ₱{{ number_format($item['price'], 2) }}
+                                        </div>
+                                    </div>
+                                @endif
 
                                 {{-- Subtotal --}}
                                 <div class="w-20 font-bold text-right">
@@ -191,7 +250,7 @@
                                 </div>
 
                                 {{-- Remove Button --}}
-                                <x-mary-button icon="o-trash" wire:click="removeFromCart('{{ $key }}')"
+                                <x-mary-button icon="o-trash" wire:click="removeFromCart('{{ $cartKey }}')"
                                     class="btn-xs btn-ghost text-error" :disabled="!$currentShift" />
                             </div>
                         @endforeach
@@ -211,7 +270,7 @@
                         <x-heroicon-o-shopping-cart class="w-12 h-12 mx-auto text-base-400" />
                         <p class="mt-2 text-base-500">Cart is empty</p>
                         <p class="text-sm text-base-400">
-                            {{ $currentShift ? 'Search for products to add to cart' : 'Start a shift to begin adding products' }}
+                            {{ $currentShift ? 'Search for products or services to add to cart' : 'Start a shift to begin adding items' }}
                         </p>
                         <x-mary-button label="Held Sales" wire:click="openHeldSalesModal" class="btn-info btn-sm"
                             :disabled="!$currentShift" />
@@ -951,6 +1010,60 @@
             @else
                 <x-mary-button label="Save Serials" class="btn-primary btn-disabled" disabled />
             @endif
+        </x-slot:actions>
+    </x-mary-modal>
+
+    {{-- Service Modal --}}
+    <x-mary-modal wire:model="showServiceModal" title="Browse Services" box-class="w-11/12 max-w-4xl">
+        <div class="space-y-4">
+            <x-mary-input wire:model.live.debounce.300ms="searchService" placeholder="Search services..."
+                icon="o-magnifying-glass" />
+
+            @if (!empty($serviceResults))
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    @foreach ($serviceResults as $service)
+                        <div class="p-4 border rounded-lg border-base-300 hover:border-primary hover:bg-base-50">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <h4 class="font-semibold">{{ $service->name }}</h4>
+                                    <p class="text-sm text-base-content/60">{{ $service->code }}</p>
+                                    @if ($service->description)
+                                        <p class="mt-1 text-sm text-base-content/70">{{ $service->description }}</p>
+                                    @endif
+                                    <div class="flex gap-2 mt-2">
+                                        <span
+                                            class="badge badge-sm badge-outline">{{ $service->service_type }}</span>
+                                        <span
+                                            class="badge badge-sm badge-outline">{{ $service->formatted_duration }}</span>
+                                        @if ($service->requires_parts)
+                                            <span class="badge badge-sm badge-warning">Requires Parts</span>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-lg font-bold text-primary">{{ $service->formatted_price }}</div>
+                                    <x-mary-button wire:click="addServiceToCart({{ $service->id }})"
+                                        class="mt-2 btn-sm btn-primary">
+                                        Add to Cart
+                                    </x-mary-button>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <div class="py-8 text-center text-base-content/60">
+                    @if (strlen($searchService) >= 2)
+                        No services found matching "{{ $searchService }}"
+                    @else
+                        Enter at least 2 characters to search services
+                    @endif
+                </div>
+            @endif
+        </div>
+
+        <x-slot:actions>
+            <x-mary-button wire:click="closeServiceModal">Close</x-mary-button>
         </x-slot:actions>
     </x-mary-modal>
 
