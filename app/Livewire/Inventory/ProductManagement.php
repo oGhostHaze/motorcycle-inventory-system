@@ -93,6 +93,29 @@ class ProductManagement extends Component
         $this->loadAvailableLocations();
     }
 
+    public function updatingSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingCategoryFilter()
+    {
+        $this->resetPage();
+    }
+
+
+    public function updatingStatusFilter()
+    {
+        $this->resetPage();
+    }
+
+
+    public function updatingStockFilter()
+    {
+        $this->resetPage();
+    }
+
+
     public function loadAvailableLocations()
     {
         $this->availableLocations = InventoryLocation::active()
@@ -174,7 +197,7 @@ class ProductManagement extends Component
                         });
                 }
             })
-            ->orderBy('created_at', 'desc')
+            ->orderBy('slug', 'asc')
             ->paginate(20);
 
         $categories = Category::where('is_active', true)->orderBy('name')->get();
