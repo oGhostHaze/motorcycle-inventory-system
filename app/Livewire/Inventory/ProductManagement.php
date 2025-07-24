@@ -56,6 +56,7 @@ class ProductManagement extends Component
     public $categoryFilter = '';
     public $statusFilter = '';
     public $stockFilter = '';
+    public $duplicateFilter = '';
 
     public $showViewModal = false;
 
@@ -91,6 +92,11 @@ class ProductManagement extends Component
         $this->loadWarehouses();
         $this->loadSearchableOptions();
         $this->loadAvailableLocations();
+    }
+
+    public function updatingDuplicateFilter()
+    {
+        $this->resetPage();
     }
 
     public function updatingSearch()
@@ -196,8 +202,19 @@ class ProductManagement extends Component
                             $query->where('quantity_on_hand', '>', 0);
                         });
                 }
+            })->when($this->duplicateFilter, function ($q) {
+                switch ($this->duplicateFilter) {
+                    case 'similar_names':
+                        return $this->filterSimilarNames($q);
+                    case 'duplicate_skus':
+                        return $this->filterDuplicateSkus($q);
+                    case 'duplicate_barcodes':
+                        return $this->filterDuplicateBarcodes($q);
+                    case 'similar_products':
+                        return $this->filterSimilarProducts($q);
+                }
             })
-            ->orderBy('slug', 'asc')
+            ->orderBy('name', 'asc')
             ->paginate(20);
 
         $categories = Category::where('is_active', true)->orderBy('name')->get();
@@ -213,16 +230,20 @@ class ProductManagement extends Component
         $filterOptions = [
             'categories' => $categories->map(fn($cat) => ['value' => $cat->id, 'label' => $cat->name]),
             'statuses' => [
-                ['value' => '', 'label' => 'All Status'],
                 ['value' => 'active', 'label' => 'Active'],
                 ['value' => 'inactive', 'label' => 'Inactive'],
                 ['value' => 'discontinued', 'label' => 'Discontinued'],
             ],
             'stock' => [
-                ['value' => '', 'label' => 'All Stock'],
                 ['value' => 'in_stock', 'label' => 'In Stock'],
                 ['value' => 'low', 'label' => 'Low Stock'],
                 ['value' => 'out', 'label' => 'Out of Stock'],
+            ],
+            'duplicates' => [
+                ['value' => 'similar_names', 'label' => 'Similar Names'],
+                ['value' => 'duplicate_skus', 'label' => 'Duplicate SKUs'],
+                ['value' => 'duplicate_barcodes', 'label' => 'Duplicate Barcodes'],
+                ['value' => 'similar_products', 'label' => 'Potential Duplicates'],
             ]
         ];
 
@@ -287,6 +308,88 @@ class ProductManagement extends Component
 
         $this->showModal = true;
         $this->resetValidation();
+    }
+
+
+    private function filterSimilarNames($query)
+    {
+        // Find products with similar names (fuzzy matching)
+        $products = Product::select('name')
+            ->whereRaw('LENGTH(name) > 3')
+            ->get()
+            ->groupBy(function ($product) {
+                // Create a simplified version for comparison
+                return $this->normalizeProductName($product->name);
+            })
+            ->filter(function ($group) {
+                return $group->count() > 1;
+            })
+            ->flatten()
+            ->pluck('name')
+            ->toArray();
+
+        return $query->whereIn('name', $products);
+    }
+
+    private function filterDuplicateSkus($query)
+    {
+        // Find products with duplicate SKUs (should not happen but good to check)
+        $duplicateSkus = Product::select('sku')
+            ->whereNotNull('sku')
+            ->where('sku', '!=', '')
+            ->groupBy('sku')
+            ->havingRaw('COUNT(*) > 1')
+            ->pluck('sku')
+            ->toArray();
+
+        return $query->whereIn('sku', $duplicateSkus);
+    }
+
+    private function filterDuplicateBarcodes($query)
+    {
+        // Find products with duplicate barcodes
+        $duplicateBarcodes = Product::select('barcode')
+            ->whereNotNull('barcode')
+            ->where('barcode', '!=', '')
+            ->groupBy('barcode')
+            ->havingRaw('COUNT(*) > 1')
+            ->pluck('barcode')
+            ->toArray();
+
+        return $query->whereIn('barcode', $duplicateBarcodes);
+    }
+
+    private function filterSimilarProducts($query)
+    {
+        // Find products that are potentially duplicates based on multiple criteria
+        return $query->whereExists(function ($subQuery) {
+            $subQuery->select('id')
+                ->from('products as p2')
+                ->where('p2.id', '!=', 'products.id')
+                ->where('p2.category_id', '=', 'products.category_id')
+                ->where(function ($nameQuery) {
+                    $nameQuery->whereRaw('SOUNDEX(p2.name) = SOUNDEX(products.name)')
+                        ->orWhereRaw('p2.name LIKE CONCAT("%", products.name, "%")')
+                        ->orWhereRaw('products.name LIKE CONCAT("%", p2.name, "%")');
+                });
+        });
+    }
+
+    private function normalizeProductName($name)
+    {
+        // Remove common words and normalize for comparison
+        $commonWords = ['and', 'or', 'the', 'a', 'an', 'for', 'with', 'without', 'set', 'kit'];
+
+        $normalized = strtolower($name);
+        $normalized = preg_replace('/[^a-z0-9\s]/', '', $normalized);
+
+        $words = explode(' ', $normalized);
+        $words = array_filter($words, function ($word) use ($commonWords) {
+            return !in_array($word, $commonWords) && strlen($word) > 2;
+        });
+
+        sort($words);
+        return implode(' ', $words);
     }
 
     private function loadSearchableOptionsForEdit()

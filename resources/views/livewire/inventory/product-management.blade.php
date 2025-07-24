@@ -43,6 +43,8 @@
         <x-mary-select label="Stock" :options="$filterOptions['stock']" wire:model.live="stockFilter" placeholder="All Stock"
             option-value="value" option-label="label" />
 
+        <x-mary-select label="Duplicates" :options="$filterOptions['duplicates']" wire:model.live="duplicateFilter" placeholder="All Products"
+            option-value="value" option-label="label" />
         <div class="flex items-end">
             <x-mary-button label="Clear" wire:click="clearFilters" class="w-full btn-outline" />
         </div>
