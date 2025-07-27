@@ -339,16 +339,14 @@
     </x-mary-tabs>
 
     {{-- Export Modal --}}
+
     <x-mary-modal wire:model="showExportModal" title="Export Sales Report">
         <div class="space-y-4">
-            <x-mary-radio label="Export Format" wire:model="exportFormat" :options="[
-                [
-                    'id' => 'excel',
-                    'name' => 'Excel (.xlsx)',
-                    'hint' => 'Spreadsheet format with multiple sheets',
-                ],
-                ['id' => 'pdf', 'name' => 'PDF (.pdf)', 'hint' => 'Formatted document for printing'],
-            ]" />
+            <div class="p-3 rounded-lg bg-base-200">
+                <div class="text-sm font-medium">Export Format:</div>
+                <div class="text-lg font-semibold text-primary">Excel (.xlsx)</div>
+                <div class="text-sm text-gray-600">Comprehensive spreadsheet with multiple sheets</div>
+            </div>
 
             <div class="p-3 rounded-lg bg-base-200">
                 <div class="text-sm font-medium">Export Period:</div>
@@ -357,11 +355,28 @@
                     {{ \Carbon\Carbon::parse($endDate)->format('M j, Y') }}
                 </div>
             </div>
+
+            <div class="p-3 border rounded-lg bg-info/10 border-info/20">
+                <div class="flex items-start gap-2">
+                    <x-mary-icon name="o-information-circle" class="w-5 h-5 text-info mt-0.5" />
+                    <div class="text-sm">
+                        <div class="font-medium text-info">Excel Export Includes:</div>
+                        <ul class="mt-1 text-xs list-disc list-inside text-info/80">
+                            <li>Summary metrics & period comparison</li>
+                            <li>Top products & customer analysis</li>
+                            <li>Sales trends & hourly patterns</li>
+                            <li>Staff performance & category breakdown</li>
+                            <li>Payment methods & detailed data</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <x-slot:actions>
             <x-mary-button label="Cancel" @click="$wire.showExportModal = false" />
-            <x-mary-button label="Export" wire:click="exportReport" class="btn-primary" />
+            <x-mary-button label="Export to Excel" wire:click="exportReport" class="btn-primary"
+                icon="o-document-arrow-down" />
         </x-slot:actions>
     </x-mary-modal>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>

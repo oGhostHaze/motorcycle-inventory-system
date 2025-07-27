@@ -629,7 +629,44 @@ class CustomerReports extends Component
 
     public function exportToExcel()
     {
-        $this->success('Excel export functionality would be implemented here');
+        try {
+            // Get all report data (not paginated)
+            $reportData = $this->getAllReportData();
+            $summaryData = $this->getSummaryData();
+
+            // Prepare filters info for export
+            $filters = [
+                'warehouse_name' => $this->warehouse ? Warehouse::find($this->warehouse)?->name : null,
+                'customer_group' => $this->customerGroup,
+                'customer_status' => $this->customerStatus,
+                'period' => $this->period,
+                'dateFrom' => $this->dateFrom,
+                'dateTo' => $this->dateTo,
+                'reportType' => $this->reportType,
+            ];
+
+            // Generate filename
+            $reportTypeNames = [
+                'customer_analysis' => 'Customer-Analysis',
+                'purchase_behavior' => 'Purchase-Behavior',
+                'loyalty_analysis' => 'Loyalty-Analysis',
+                'segmentation' => 'Customer-Segmentation',
+                'lifetime_value' => 'Lifetime-Value',
+                'product_preferences' => 'Product-Preferences',
+            ];
+
+            $filename = ($reportTypeNames[$this->reportType] ?? 'Customer-Report') . '-' . now()->format('Y-m-d') . '.xlsx';
+
+            $this->success('Exporting to Excel...');
+
+            return Excel::download(
+                new \App\Exports\CustomerReportsExport($this->reportType, $reportData, $summaryData, $filters),
+                $filename
+            );
+        } catch (\Exception $e) {
+            \Log::error('Customer report Excel export error: ' . $e->getMessage());
+            $this->error('Export failed: ' . $e->getMessage());
+        }
     }
 
     public function clearFilters()
@@ -642,5 +679,254 @@ class CustomerReports extends Component
     {
         $this->resetPage();
         $this->success('Customer reports data refreshed!');
+    }
+
+
+    private function getAllReportData()
+    {
+        switch ($this->reportType) {
+            case 'purchase_behavior':
+                return $this->getPurchaseBehaviorAll();
+            case 'loyalty_analysis':
+                return $this->getLoyaltyAnalysisAll();
+            case 'segmentation':
+                return $this->getCustomerSegmentationAll();
+            case 'lifetime_value':
+                return $this->getLifetimeValueAll();
+            case 'product_preferences':
+                return $this->getProductPreferencesAll();
+            default:
+                return $this->getCustomerAnalysisAll();
+        }
+    }
+
+    private function getCustomerAnalysisAll()
+    {
+        $query = Sale::with('customer')
+            ->selectRaw('
+            customer_id,
+            COUNT(*) as total_orders,
+            SUM(total_amount) as total_spent,
+            AVG(total_amount) as avg_order_value,
+            MAX(completed_at) as last_purchase_date,
+            MIN(completed_at) as first_purchase_date,
+            SUM(CASE
+                WHEN sale_items.cost_price IS NOT NULL
+                THEN (sale_items.unit_price - sale_items.cost_price) * sale_items.quantity
+                ELSE 0
+            END) as total_profit_generated
+        ')
+            ->leftJoin('sale_items', 'sales.id', '=', 'sale_items.sale_id')
+            ->whereBetween('sales.completed_at', [$this->dateFrom, $this->dateTo])
+            ->whereNotNull('sales.completed_at')
+            ->where('sales.status', 'completed')
+            ->when($this->warehouse, fn($q) => $q->where('sales.warehouse_id', $this->warehouse))
+            ->when($this->customerGroup, function ($q) {
+                $q->whereHas('customer', fn($sq) => $sq->where('type', $this->customerGroup));
+            })
+            ->when($this->customerStatus, function ($q) {
+                if ($this->customerStatus === 'active') {
+                    $q->whereHas('customer', fn($sq) => $sq->where('is_active', true));
+                } elseif ($this->customerStatus === 'inactive') {
+                    $q->whereHas('customer', fn($sq) => $sq->where('is_active', false));
+                }
+            })
+            ->groupBy('customer_id')
+            ->orderBy($this->sortBy, $this->sortDirection);
+
+        return $query->get();
+    }
+
+    private function getPurchaseBehaviorAll()
+    {
+        return Sale::with('customer')
+            ->selectRaw('
+            customer_id,
+            COUNT(*) as purchase_frequency,
+            AVG(total_amount) as avg_purchase_amount,
+            STDDEV(total_amount) as purchase_variance,
+            AVG(HOUR(created_at)) as preferred_hour,
+            CASE
+                WHEN COUNT(*) > 1 THEN
+                    DATEDIFF(MAX(completed_at), MIN(completed_at)) / (COUNT(*) - 1)
+                ELSE 0
+            END as avg_days_between_purchases
+        ')
+            ->whereBetween('completed_at', [$this->dateFrom, $this->dateTo])
+            ->whereNotNull('completed_at')
+            ->where('status', 'completed')
+            ->when($this->warehouse, fn($q) => $q->where('warehouse_id', $this->warehouse))
+            ->groupBy('customer_id')
+            ->having('purchase_frequency', '>', 1)
+            ->orderBy('purchase_frequency', 'desc')
+            ->get();
+    }
+
+    private function getLoyaltyAnalysisAll()
+    {
+        return Customer::withCount(['sales' => function ($query) {
+            $query->whereBetween('completed_at', [$this->dateFrom, $this->dateTo])
+                ->where('status', 'completed');
+            if ($this->warehouse) {
+                $query->where('warehouse_id', $this->warehouse);
+            }
+        }])
+            ->withSum(['sales' => function ($query) {
+                $query->whereBetween('completed_at', [$this->dateFrom, $this->dateTo])
+                    ->where('status', 'completed');
+                if ($this->warehouse) {
+                    $query->where('warehouse_id', $this->warehouse);
+                }
+            }], 'total_amount')
+            ->when($this->customerGroup, fn($q) => $q->where('type', $this->customerGroup))
+            ->when($this->customerStatus, function ($q) {
+                if ($this->customerStatus === 'active') {
+                    $q->where('is_active', true);
+                } elseif ($this->customerStatus === 'inactive') {
+                    $q->where('is_active', false);
+                }
+            })
+            ->get()
+            ->map(function ($customer) {
+                $totalSpent = $customer->sales_sum_total_amount ?? 0;
+                $totalOrders = $customer->sales_count ?? 0;
+
+                // Calculate loyalty score
+                $loyaltyScore = 0;
+                if ($totalOrders >= 10) $loyaltyScore += 30;
+                elseif ($totalOrders >= 5) $loyaltyScore += 20;
+                elseif ($totalOrders >= 2) $loyaltyScore += 10;
+
+                if ($totalSpent >= 100000) $loyaltyScore += 30;
+                elseif ($totalSpent >= 50000) $loyaltyScore += 20;
+                elseif ($totalSpent >= 10000) $loyaltyScore += 10;
+
+                $lastPurchase = $customer->sales()->latest('completed_at')->first();
+                if ($lastPurchase && $lastPurchase->completed_at && $lastPurchase->completed_at->gte(Carbon::now()->subDays(30))) {
+                    $loyaltyScore += 20;
+                }
+
+                $customer->loyalty_score = min($loyaltyScore, 100);
+                $customer->total_spent = $totalSpent;
+                $customer->total_orders = $totalOrders;
+
+                return $customer;
+            })
+            ->sortByDesc('loyalty_score');
+    }
+
+    private function getCustomerSegmentationAll()
+    {
+        return Sale::with('customer')
+            ->selectRaw('
+            customer_id,
+            MAX(completed_at) as last_purchase,
+            COUNT(*) as frequency,
+            SUM(total_amount) as monetary_value,
+            DATEDIFF(NOW(), MAX(completed_at)) as recency_days
+        ')
+            ->where('status', 'completed')
+            ->when($this->warehouse, fn($q) => $q->where('warehouse_id', $this->warehouse))
+            ->whereNotNull('completed_at')
+            ->groupBy('customer_id')
+            ->get()
+            ->map(function ($item) {
+                // RFM scoring (1-5 scale)
+                $recencyScore = $item->recency_days <= 30 ? 5 : ($item->recency_days <= 90 ? 4 : ($item->recency_days <= 180 ? 3 : ($item->recency_days <= 365 ? 2 : 1)));
+
+                $frequencyScore = $item->frequency >= 10 ? 5 : ($item->frequency >= 5 ? 4 : ($item->frequency >= 3 ? 3 : ($item->frequency >= 2 ? 2 : 1)));
+
+                $monetaryScore = $item->monetary_value >= 100000 ? 5 : ($item->monetary_value >= 50000 ? 4 : ($item->monetary_value >= 20000 ? 3 : ($item->monetary_value >= 5000 ? 2 : 1)));
+
+                // Determine segment
+                $avgScore = ($recencyScore + $frequencyScore + $monetaryScore) / 3;
+
+                if ($avgScore >= 4.5) $segment = 'Champions';
+                elseif ($avgScore >= 4) $segment = 'Loyal Customers';
+                elseif ($avgScore >= 3.5) $segment = 'Potential Loyalists';
+                elseif ($avgScore >= 3) $segment = 'New Customers';
+                elseif ($avgScore >= 2.5) $segment = 'Promising';
+                elseif ($avgScore >= 2) $segment = 'Need Attention';
+                elseif ($avgScore >= 1.5) $segment = 'About to Sleep';
+                else $segment = 'At Risk';
+
+                $item->recency_score = $recencyScore;
+                $item->frequency_score = $frequencyScore;
+                $item->monetary_score = $monetaryScore;
+                $item->segment = $segment;
+
+                return $item;
+            })
+            ->sortByDesc('monetary_value');
+    }
+
+    private function getLifetimeValueAll()
+    {
+        return Customer::selectRaw('
+            customers.id,
+            customers.name,
+            customers.email,
+            customers.phone,
+            customers.type,
+            customers.is_active,
+            COUNT(sales.id) as total_orders,
+            COALESCE(SUM(sales.total_amount), 0) as lifetime_value,
+            COALESCE(AVG(sales.total_amount), 0) as avg_order_value,
+            MAX(sales.completed_at) as last_purchase_date,
+            MIN(sales.completed_at) as first_purchase_date,
+            COALESCE(DATEDIFF(MAX(sales.completed_at), MIN(sales.completed_at)), 0) as customer_lifespan_days,
+            CASE
+                WHEN COUNT(sales.id) > 1 AND DATEDIFF(MAX(sales.completed_at), MIN(sales.completed_at)) > 0
+                THEN COUNT(sales.id) / (DATEDIFF(MAX(sales.completed_at), MIN(sales.completed_at)) / 365.25)
+                ELSE 0
+            END as purchase_frequency_per_year,
+            CASE
+                WHEN COUNT(sales.id) > 1 AND DATEDIFF(MAX(sales.completed_at), MIN(sales.completed_at)) > 0
+                THEN (COUNT(sales.id) / (DATEDIFF(MAX(sales.completed_at), MIN(sales.completed_at)) / 365.25)) * AVG(sales.total_amount) * 3
+                ELSE COALESCE(SUM(sales.total_amount), 0)
+            END as predicted_clv
+        ')
+            ->leftJoin('sales', function ($join) {
+                $join->on('customers.id', '=', 'sales.customer_id')
+                    ->where('sales.status', '=', 'completed')
+                    ->whereNotNull('sales.completed_at');
+            })
+            ->when($this->warehouse, fn($q) => $q->where('sales.warehouse_id', $this->warehouse))
+            ->when($this->customerGroup, fn($q) => $q->where('customers.type', $this->customerGroup))
+            ->when($this->customerStatus, function ($q) {
+                if ($this->customerStatus === 'active') {
+                    $q->where('customers.is_active', true);
+                } elseif ($this->customerStatus === 'inactive') {
+                    $q->where('customers.is_active', false);
+                }
+            })
+            ->groupBy('customers.id')
+            ->orderBy('predicted_clv', 'desc')
+            ->get();
+    }
+
+    private function getProductPreferencesAll()
+    {
+        return SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->join('categories', 'products.category_id', '=', 'categories.id')
+            ->leftJoin('customers', 'sales.customer_id', '=', 'customers.id')
+            ->whereBetween('sales.completed_at', [$this->dateFrom, $this->dateTo])
+            ->where('sales.status', 'completed')
+            ->when($this->warehouse, fn($q) => $q->where('sales.warehouse_id', $this->warehouse))
+            ->when($this->customerGroup, fn($q) => $q->where('customers.type', $this->customerGroup))
+            ->selectRaw('
+            sales.customer_id,
+            customers.name as customer_name,
+            customers.email as customer_email,
+            categories.name as preferred_category,
+            COUNT(*) as category_purchases,
+            SUM(sale_items.quantity) as total_quantity,
+            SUM(sale_items.unit_price * sale_items.quantity) as total_spent_in_category,
+            AVG(sale_items.unit_price) as avg_price_point
+        ')
+            ->groupBy('sales.customer_id', 'customers.name', 'customers.email', 'categories.id', 'categories.name')
+            ->orderBy('total_spent_in_category', 'desc')
+            ->get();
     }
 }

@@ -541,7 +541,42 @@ class InventoryReports extends Component
 
     public function exportToExcel()
     {
-        $this->success('Excel export functionality would be implemented here');
+        try {
+            // Get all report data (not paginated)
+            $reportData = $this->getAllReportData();
+            $summaryData = $this->getSummaryData();
+
+            // Prepare filters info for export
+            $filters = [
+                'warehouse_name' => $this->warehouse ? Warehouse::find($this->warehouse)?->name : null,
+                'category_name' => $this->category ? Category::find($this->category)?->name : null,
+                'dateFrom' => $this->dateFrom,
+                'dateTo' => $this->dateTo,
+            ];
+
+            // Generate filename
+            $reportTypeNames = [
+                'stock_levels' => 'Stock-Levels',
+                'valuation' => 'Inventory-Valuation',
+                'movement' => 'Stock-Movement',
+                'aging' => 'Inventory-Aging',
+                'abc_analysis' => 'ABC-Analysis',
+                'reorder' => 'Reorder-Report',
+                'turnover' => 'Inventory-Turnover',
+            ];
+
+            $filename = ($reportTypeNames[$this->reportType] ?? 'Inventory-Report') . '-' . now()->format('Y-m-d') . '.xlsx';
+
+            $this->success('Exporting to Excel...');
+
+            return Excel::download(
+                new \App\Exports\InventoryReportsExport($this->reportType, $reportData, $summaryData, $filters),
+                $filename
+            );
+        } catch (\Exception $e) {
+            \Log::error('Inventory report Excel export error: ' . $e->getMessage());
+            $this->error('Export failed: ' . $e->getMessage());
+        }
     }
 
     public function sortBy($field)
@@ -558,5 +593,272 @@ class InventoryReports extends Component
     {
         $this->reset(['warehouse', 'category', 'stockStatus']);
         $this->success('Filters cleared!');
+    }
+
+    private function getAllReportData()
+    {
+        // Get complete dataset without pagination for export
+        switch ($this->reportType) {
+            case 'valuation':
+                return $this->getValuationReportAll();
+            case 'movement':
+                return $this->getMovementReportAll();
+            case 'aging':
+                return $this->getAgingReportAll();
+            case 'abc_analysis':
+                return $this->getABCAnalysisAll();
+            case 'reorder':
+                return $this->getReorderReportAll();
+            case 'turnover':
+                return $this->getTurnoverReportAll();
+            default:
+                return $this->getStockLevelsReportAll();
+        }
+    }
+
+    private function getStockLevelsReportAll()
+    {
+        $query = Inventory::with(['product.category', 'warehouse'])
+            ->join('products', 'inventories.product_id', '=', 'products.id')
+            ->select([
+                'inventories.*',
+                'products.name as product_name',
+                'products.sku',
+                'products.cost_price',
+                'products.selling_price',
+                'products.min_stock_level',
+                'products.max_stock_level'
+            ]);
+
+        // Apply filters
+        if ($this->warehouse) {
+            $query->where('inventories.warehouse_id', $this->warehouse);
+        }
+
+        if ($this->category) {
+            $query->where('products.category_id', $this->category);
+        }
+
+        if ($this->stockStatus) {
+            switch ($this->stockStatus) {
+                case 'in_stock':
+                    $query->where('inventories.quantity_available', '>', 0);
+                    break;
+                case 'low_stock':
+                    $query->whereColumn('inventories.quantity_available', '<=', 'products.min_stock_level')
+                        ->where('inventories.quantity_available', '>', 0);
+                    break;
+                case 'out_of_stock':
+                    $query->where('inventories.quantity_available', '<=', 0);
+                    break;
+                case 'overstock':
+                    $query->whereColumn('inventories.quantity_available', '>', 'products.max_stock_level')
+                        ->whereNotNull('products.max_stock_level');
+                    break;
+            }
+        }
+
+        return $query->orderBy($this->sortBy == 'name' ? 'products.name' : $this->sortBy, $this->sortDirection)
+            ->get();
+    }
+
+    private function getValuationReportAll()
+    {
+        $query = Inventory::with(['product.category', 'warehouse'])
+            ->join('products', 'inventories.product_id', '=', 'products.id')
+            ->selectRaw('
+            inventories.*,
+            products.name as product_name,
+            products.sku,
+            products.cost_price,
+            products.selling_price,
+            (inventories.quantity_on_hand * products.cost_price) as cost_value,
+            (inventories.quantity_on_hand * products.selling_price) as retail_value,
+            ((products.selling_price - products.cost_price) * inventories.quantity_on_hand) as potential_profit
+        ');
+
+        if ($this->warehouse) {
+            $query->where('inventories.warehouse_id', $this->warehouse);
+        }
+
+        if ($this->category) {
+            $query->where('products.category_id', $this->category);
+        }
+
+        return $query->orderBy('cost_value', 'desc')->get();
+    }
+
+    private function getMovementReportAll()
+    {
+        $query = StockMovement::with(['product.category', 'warehouse', 'user'])
+            ->whereBetween('created_at', [$this->dateFrom, $this->dateTo]);
+
+        if ($this->warehouse) {
+            $query->where('warehouse_id', $this->warehouse);
+        }
+
+        if ($this->category) {
+            $query->whereHas('product', function ($q) {
+                $q->where('category_id', $this->category);
+            });
+        }
+
+        return $query->latest('created_at')->get();
+    }
+
+    private function getAgingReportAll()
+    {
+        $query = Inventory::with(['product.category', 'warehouse'])
+            ->join('products', 'inventories.product_id', '=', 'products.id')
+            ->leftJoin('stock_movements', function ($join) {
+                $join->on('inventories.product_id', '=', 'stock_movements.product_id')
+                    ->on('inventories.warehouse_id', '=', 'stock_movements.warehouse_id')
+                    ->whereIn('stock_movements.type', ['purchase', 'adjustment']);
+            })
+            ->selectRaw('
+            inventories.*,
+            products.name as product_name,
+            products.sku,
+            products.cost_price,
+            MAX(stock_movements.created_at) as last_received,
+            DATEDIFF(NOW(), MAX(stock_movements.created_at)) as days_since_received,
+            (inventories.quantity_on_hand * products.cost_price) as holding_cost
+        ')
+            ->groupBy([
+                'inventories.id',
+                'inventories.product_id',
+                'inventories.warehouse_id',
+                'inventories.quantity_on_hand',
+                'inventories.quantity_available',
+                'inventories.quantity_reserved',
+                'products.name',
+                'products.sku',
+                'products.cost_price'
+            ]);
+
+        if ($this->warehouse) {
+            $query->where('inventories.warehouse_id', $this->warehouse);
+        }
+
+        if ($this->category) {
+            $query->where('products.category_id', $this->category);
+        }
+
+        return $query->orderBy('days_since_received', 'desc')->get();
+    }
+
+    private function getABCAnalysisAll()
+    {
+        $salesData = DB::table('sale_items')
+            ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->whereBetween('sales.completed_at', [$this->dateFrom, $this->dateTo])
+            ->where('sales.status', 'completed')
+            ->when($this->warehouse, fn($q) => $q->where('sales.warehouse_id', $this->warehouse))
+            ->when($this->category, fn($q) => $q->where('products.category_id', $this->category))
+            ->selectRaw('
+            sale_items.product_id,
+            products.name as product_name,
+            products.sku,
+            SUM(sale_items.unit_price * sale_items.quantity) as total_sales_value,
+            SUM(sale_items.quantity) as total_quantity_sold
+        ')
+            ->groupBy('sale_items.product_id', 'products.name', 'products.sku')
+            ->orderBy('total_sales_value', 'desc')
+            ->get();
+
+        $totalSalesValue = $salesData->sum('total_sales_value');
+        $cumulativePercentage = 0;
+
+        return $salesData->map(function ($item) use ($totalSalesValue, &$cumulativePercentage) {
+            if ($totalSalesValue > 0) {
+                $percentage = ($item->total_sales_value / $totalSalesValue) * 100;
+                $cumulativePercentage += $percentage;
+
+                if ($cumulativePercentage <= 80) {
+                    $category = 'A';
+                } elseif ($cumulativePercentage <= 95) {
+                    $category = 'B';
+                } else {
+                    $category = 'C';
+                }
+
+                $item->percentage = $percentage;
+                $item->cumulative_percentage = $cumulativePercentage;
+                $item->abc_category = $category;
+            } else {
+                $item->percentage = 0;
+                $item->cumulative_percentage = 0;
+                $item->abc_category = 'C';
+            }
+
+            return $item;
+        });
+    }
+
+    private function getReorderReportAll()
+    {
+        $query = Inventory::with(['product.category', 'warehouse'])
+            ->join('products', 'inventories.product_id', '=', 'products.id')
+            ->selectRaw('
+            inventories.*,
+            products.name as product_name,
+            products.sku,
+            products.cost_price,
+            products.min_stock_level,
+            products.max_stock_level,
+            GREATEST(0, COALESCE(products.reorder_quantity, products.min_stock_level, 10)) as reorder_quantity
+        ')
+            ->whereColumn('inventories.quantity_available', '<=', 'products.min_stock_level')
+            ->whereNotNull('products.min_stock_level');
+
+        if ($this->warehouse) {
+            $query->where('inventories.warehouse_id', $this->warehouse);
+        }
+
+        if ($this->category) {
+            $query->where('products.category_id', $this->category);
+        }
+
+        return $query->orderBy('inventories.quantity_available', 'asc')->get();
+    }
+
+    private function getTurnoverReportAll()
+    {
+        return DB::table('sale_items')
+            ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->join('inventories', function ($join) {
+                $join->on('products.id', '=', 'inventories.product_id');
+                if ($this->warehouse) {
+                    $join->where('inventories.warehouse_id', $this->warehouse);
+                }
+            })
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->whereBetween('sales.completed_at', [$this->dateFrom, $this->dateTo])
+            ->where('sales.status', 'completed')
+            ->when($this->warehouse, fn($q) => $q->where('sales.warehouse_id', $this->warehouse))
+            ->when($this->category, fn($q) => $q->where('products.category_id', $this->category))
+            ->selectRaw('
+            products.id as product_id,
+            products.name as product_name,
+            products.sku,
+            categories.name as category_name,
+            SUM(sale_items.quantity) as total_sold,
+            AVG(inventories.quantity_on_hand) as avg_inventory,
+            CASE
+                WHEN AVG(inventories.quantity_on_hand) > 0
+                THEN SUM(sale_items.quantity) / AVG(inventories.quantity_on_hand)
+                ELSE 0
+            END as turnover_ratio,
+            CASE
+                WHEN SUM(sale_items.quantity) > 0 AND AVG(inventories.quantity_on_hand) > 0
+                THEN 365 / (SUM(sale_items.quantity) / AVG(inventories.quantity_on_hand))
+                ELSE 365
+            END as days_to_sell
+        ')
+            ->groupBy('products.id', 'products.name', 'products.sku', 'categories.name')
+            ->orderBy('turnover_ratio', 'desc')
+            ->get();
     }
 }

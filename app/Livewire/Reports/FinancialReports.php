@@ -649,9 +649,246 @@ class FinancialReports extends Component
         ];
     }
 
+
     public function exportToExcel()
     {
-        $this->success('Excel export functionality would be implemented here');
+        try {
+            // Get all report data (not paginated)
+            $reportData = $this->getAllReportData();
+            $summaryData = $this->getSummaryData();
+            $comparisonData = $this->compareWithPrevious ? $this->getComparisonData() : null;
+
+            // Prepare filters info for export
+            $filters = [
+                'warehouse_name' => $this->warehouse ? Warehouse::find($this->warehouse)?->name : null,
+                'category_name' => $this->category ? Category::find($this->category)?->name : null,
+                'period' => $this->period,
+                'dateFrom' => $this->dateFrom,
+                'dateTo' => $this->dateTo,
+                'reportType' => $this->reportType,
+            ];
+
+            // Generate filename
+            $reportTypeNames = [
+                'profit_loss' => 'Profit-Loss',
+                'cost_analysis' => 'Cost-Analysis',
+                'margin_analysis' => 'Margin-Analysis',
+                'expense_breakdown' => 'Expense-Breakdown',
+                'cash_flow' => 'Cash-Flow',
+                'roi_analysis' => 'ROI-Analysis',
+            ];
+
+            $filename = ($reportTypeNames[$this->reportType] ?? 'Financial-Report') . '-' . now()->format('Y-m-d') . '.xlsx';
+
+            $this->success('Exporting to Excel...');
+
+            return Excel::download(
+                new \App\Exports\FinancialReportsExport($this->reportType, $reportData, $summaryData, $comparisonData, $filters),
+                $filename
+            );
+        } catch (\Exception $e) {
+            \Log::error('Financial report Excel export error: ' . $e->getMessage());
+            $this->error('Export failed: ' . $e->getMessage());
+        }
+    }
+
+
+    private function getAllReportData()
+    {
+        switch ($this->reportType) {
+            case 'cost_analysis':
+                return $this->getCostAnalysisAll();
+            case 'margin_analysis':
+                return $this->getMarginAnalysisAll();
+            case 'expense_breakdown':
+                return $this->getExpenseBreakdownAll();
+            case 'cash_flow':
+                return $this->getCashFlowAll();
+            case 'roi_analysis':
+                return $this->getROIAnalysisAll();
+            default:
+                return $this->getProfitLossAll();
+        }
+    }
+
+    private function getProfitLossAll()
+    {
+        return Sale::selectRaw('
+            DATE(completed_at) as date,
+            SUM(total_amount) as revenue,
+            (
+                SELECT COALESCE(SUM(products.cost_price * sale_items.quantity), 0)
+                FROM sale_items
+                JOIN products ON sale_items.product_id = products.id
+                WHERE sale_items.sale_id IN (
+                    SELECT id FROM sales s2 WHERE DATE(s2.completed_at) = DATE(sales.completed_at)
+                    AND s2.status = "completed"
+                    ' . ($this->warehouse ? ' AND s2.warehouse_id = ' . $this->warehouse : '') . '
+                )
+            ) as cogs,
+            (
+                SELECT COALESCE(SUM((sale_items.unit_price - COALESCE(sale_items.cost_price, products.cost_price)) * sale_items.quantity), 0)
+                FROM sale_items
+                JOIN products ON sale_items.product_id = products.id
+                WHERE sale_items.sale_id IN (
+                    SELECT id FROM sales s2 WHERE DATE(s2.completed_at) = DATE(sales.completed_at)
+                    AND s2.status = "completed"
+                    ' . ($this->warehouse ? ' AND s2.warehouse_id = ' . $this->warehouse : '') . '
+                )
+            ) as gross_profit,
+            COUNT(*) as transactions
+        ')
+            ->whereBetween('completed_at', [$this->dateFrom, $this->dateTo])
+            ->where('status', 'completed')
+            ->when($this->warehouse, fn($q) => $q->where('warehouse_id', $this->warehouse))
+            ->groupBy('date')
+            ->orderBy('date', 'desc')
+            ->get();
+    }
+
+    private function getCostAnalysisAll()
+    {
+        return SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->join('categories', 'products.category_id', '=', 'categories.id')
+            ->whereBetween('sales.completed_at', [$this->dateFrom, $this->dateTo])
+            ->where('sales.status', 'completed')
+            ->when($this->warehouse, fn($q) => $q->where('sales.warehouse_id', $this->warehouse))
+            ->when($this->category, fn($q) => $q->where('products.category_id', $this->category))
+            ->selectRaw('
+            categories.name as category_name,
+            SUM(sale_items.quantity) as total_quantity,
+            SUM(COALESCE(sale_items.cost_price, products.cost_price) * sale_items.quantity) as total_cost,
+            SUM(sale_items.unit_price * sale_items.quantity) as total_revenue,
+            SUM((sale_items.unit_price - COALESCE(sale_items.cost_price, products.cost_price)) * sale_items.quantity) as total_profit,
+            AVG(COALESCE(sale_items.cost_price, products.cost_price)) as avg_unit_cost,
+            AVG(sale_items.unit_price) as avg_selling_price
+        ')
+            ->groupBy('categories.id', 'categories.name')
+            ->orderBy('total_cost', 'desc')
+            ->get();
+    }
+
+    private function getMarginAnalysisAll()
+    {
+        return SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->whereBetween('sales.completed_at', [$this->dateFrom, $this->dateTo])
+            ->where('sales.status', 'completed')
+            ->when($this->warehouse, fn($q) => $q->where('sales.warehouse_id', $this->warehouse))
+            ->when($this->category, fn($q) => $q->where('products.category_id', $this->category))
+            ->selectRaw('
+            products.id as product_id,
+            products.name as product_name,
+            products.sku,
+            categories.name as category_name,
+            SUM(sale_items.quantity) as total_quantity,
+            SUM(COALESCE(sale_items.cost_price, products.cost_price) * sale_items.quantity) as total_cost,
+            SUM(sale_items.unit_price * sale_items.quantity) as total_revenue,
+            SUM((sale_items.unit_price - COALESCE(sale_items.cost_price, products.cost_price)) * sale_items.quantity) as total_profit,
+            AVG(COALESCE(sale_items.cost_price, products.cost_price)) as avg_unit_cost,
+            AVG(sale_items.unit_price) as avg_selling_price,
+            CASE
+                WHEN SUM(sale_items.unit_price * sale_items.quantity) > 0
+                THEN (SUM((sale_items.unit_price - COALESCE(sale_items.cost_price, products.cost_price)) * sale_items.quantity) / SUM(sale_items.unit_price * sale_items.quantity)) * 100
+                ELSE 0
+            END as profit_margin_percentage
+        ')
+            ->groupBy('products.id', 'products.name', 'products.sku', 'categories.name')
+            ->orderBy('profit_margin_percentage', 'desc')
+            ->get();
+    }
+
+    private function getExpenseBreakdownAll()
+    {
+        return PurchaseOrder::with(['supplier', 'warehouse'])
+            ->whereBetween('order_date', [$this->dateFrom, $this->dateTo])
+            ->when($this->warehouse, fn($q) => $q->where('warehouse_id', $this->warehouse))
+            ->selectRaw('
+            purchase_orders.*,
+            CASE
+                WHEN status = "completed" THEN total_amount
+                ELSE 0
+            END as actual_expense
+        ')
+            ->orderBy('order_date', 'desc')
+            ->get();
+    }
+
+    private function getCashFlowAll()
+    {
+        // Get the cash flow data similar to the paginated version but return all
+        $cashFlowData = [];
+
+        $sales = Sale::selectRaw('
+            YEARWEEK(completed_at) as week,
+            MIN(completed_at) as week_start,
+            SUM(total_amount) as cash_in
+        ')
+            ->whereBetween('completed_at', [$this->dateFrom, $this->dateTo])
+            ->where('status', 'completed')
+            ->when($this->warehouse, fn($q) => $q->where('warehouse_id', $this->warehouse))
+            ->groupBy('week')
+            ->get()
+            ->keyBy('week');
+
+        $purchases = PurchaseOrder::selectRaw('
+            YEARWEEK(order_date) as week,
+            MIN(order_date) as week_start,
+            SUM(CASE WHEN status = "completed" THEN total_amount ELSE 0 END) as cash_out
+        ')
+            ->whereBetween('order_date', [$this->dateFrom, $this->dateTo])
+            ->when($this->warehouse, fn($q) => $q->where('warehouse_id', $this->warehouse))
+            ->groupBy('week')
+            ->get()
+            ->keyBy('week');
+
+        $allWeeks = $sales->keys()->merge($purchases->keys())->unique()->sort();
+
+        foreach ($allWeeks as $week) {
+            $sale = $sales->get($week);
+            $purchase = $purchases->get($week);
+
+            $cashIn = $sale ? $sale->cash_in : 0;
+            $cashOut = $purchase ? $purchase->cash_out : 0;
+            $netFlow = $cashIn - $cashOut;
+
+            $cashFlowData[] = (object) [
+                'week' => $week,
+                'week_start' => $sale->week_start ?? $purchase->week_start,
+                'cash_in' => $cashIn,
+                'cash_out' => $cashOut,
+                'net_flow' => $netFlow,
+            ];
+        }
+
+        return collect($cashFlowData);
+    }
+
+    private function getROIAnalysisAll()
+    {
+        return SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->join('categories', 'products.category_id', '=', 'categories.id')
+            ->whereBetween('sales.completed_at', [$this->dateFrom, $this->dateTo])
+            ->where('sales.status', 'completed')
+            ->when($this->warehouse, fn($q) => $q->where('sales.warehouse_id', $this->warehouse))
+            ->selectRaw('
+            categories.name as category_name,
+            SUM(COALESCE(sale_items.cost_price, products.cost_price) * sale_items.quantity) as total_investment,
+            SUM(sale_items.unit_price * sale_items.quantity) as total_return,
+            SUM((sale_items.unit_price - COALESCE(sale_items.cost_price, products.cost_price)) * sale_items.quantity) as total_profit,
+            CASE
+                WHEN SUM(COALESCE(sale_items.cost_price, products.cost_price) * sale_items.quantity) > 0
+                THEN (SUM((sale_items.unit_price - COALESCE(sale_items.cost_price, products.cost_price)) * sale_items.quantity) / SUM(COALESCE(sale_items.cost_price, products.cost_price) * sale_items.quantity)) * 100
+                ELSE 0
+            END as roi_percentage,
+            COUNT(DISTINCT sales.id) as transaction_count
+        ')
+            ->groupBy('categories.id', 'categories.name')
+            ->orderBy('roi_percentage', 'desc')
+            ->get();
     }
 
     public function clearFilters()

@@ -459,57 +459,50 @@ class SalesReports extends Component
     {
         try {
             $filename = 'sales-report-' . $this->startDate . '-to-' . $this->endDate;
-
-            if ($this->exportFormat === 'pdf') {
-                return $this->exportToPdf($filename);
-            } else {
-                return $this->exportToExcel($filename);
-            }
+            return $this->exportToExcel($filename);
         } catch (\Exception $e) {
             $this->error('Export failed: ' . $e->getMessage());
         }
     }
 
-    private function exportToPdf($filename)
-    {
-        $data = [
-            'salesSummary' => $this->salesSummary,
-            'profitSummary' => $this->profitSummary,
-            'topProducts' => $this->topProducts,
-            'topCustomers' => $this->topCustomers,
-            'paymentMethods' => $this->paymentMethods,
-            'startDate' => $this->startDate,
-            'endDate' => $this->endDate,
-        ];
-
-        $pdf = Pdf::loadView('reports.sales-pdf', $data);
-
-        $this->dispatch('trigger-download', [
-            'url' => route('reports.sales.export-pdf', [
-                'startDate' => $this->startDate,
-                'endDate' => $this->endDate,
-                'format' => 'pdf'
-            ]),
-            'filename' => $filename . '.pdf'
-        ]);
-
-        $this->success('PDF export started!');
-        $this->showExportModal = false;
-    }
-
     private function exportToExcel($filename)
     {
-        $this->dispatch('trigger-download', [
-            'url' => route('reports.sales.export-excel', [
-                'startDate' => $this->startDate,
-                'endDate' => $this->endDate,
-                'format' => 'excel'
-            ]),
-            'filename' => $filename . '.xlsx'
-        ]);
+        try {
+            // Prepare comprehensive export data
+            $exportData = [
+                'salesSummary' => $this->salesSummary,
+                'profitSummary' => $this->profitSummary,
+                'topProducts' => $this->topProducts,
+                'topCustomers' => $this->topCustomers,
+                'paymentMethods' => $this->paymentMethods,
+                'salesTrends' => $this->salesTrends,
+                'hourlyTrends' => $this->hourlyTrends,
+                'salesByUser' => $this->salesByUser,
+                'categoryPerformance' => $this->categoryPerformance,
+                'dailyComparison' => $this->dailyComparison,
+            ];
 
-        $this->success('Excel export started!');
-        $this->showExportModal = false;
+            $filters = [
+                'warehouse_name' => $this->warehouseFilter ? Warehouse::find($this->warehouseFilter)?->name : null,
+                'customer_name' => $this->customerFilter ? Customer::find($this->customerFilter)?->name : null,
+                'user_name' => $this->userFilter ? User::find($this->userFilter)?->name : null,
+                'payment_method' => $this->paymentMethodFilter,
+                'status' => $this->statusFilter,
+                'dateFrom' => $this->startDate,
+                'dateTo' => $this->endDate,
+            ];
+
+            $this->success('Exporting to Excel...');
+            $this->showExportModal = false;
+
+            return Excel::download(
+                new \App\Exports\SalesReportsExport($exportData, $filters),
+                $filename . '.xlsx'
+            );
+        } catch (\Exception $e) {
+            \Log::error('Sales report Excel export error: ' . $e->getMessage());
+            $this->error('Excel export failed: ' . $e->getMessage());
+        }
     }
 
     public function render()
