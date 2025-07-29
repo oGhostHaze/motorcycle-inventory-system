@@ -1005,7 +1005,7 @@ class PointOfSale extends Component
     public function hasSerialTrackingItems()
     {
         foreach ($this->cartItems as $item) {
-            if ($item['item_type'] === 'product' && isset($item['track_serial']) && $item['track_serial']) {
+            if (isset($item['item_type']) && $item['item_type'] === 'product' && isset($item['track_serial']) && $item['track_serial']) {
                 return true;
             }
         }
