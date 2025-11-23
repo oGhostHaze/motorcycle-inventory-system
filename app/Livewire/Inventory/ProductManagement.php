@@ -457,18 +457,16 @@ class ProductManagement extends Component
 
             // Save inventory for each warehouse
             foreach ($this->warehouseStock as $warehouseId => $stock) {
-                if (!empty($stock['quantity']) || $stock['quantity'] === 0) {
-                    Inventory::updateOrCreate(
-                        [
-                            'product_id' => $product->id,
-                            'warehouse_id' => $warehouseId,
-                        ],
-                        [
-                            'quantity_on_hand' => $stock['quantity'],
-                            'inventory_location_id' => $stock['inventory_location_id'],
-                        ]
-                    );
-                }
+                Inventory::updateOrCreate(
+                    [
+                        'product_id' => $product->id,
+                        'warehouse_id' => $warehouseId,
+                    ],
+                    [
+                        'quantity_on_hand' => $stock['quantity'],
+                        'inventory_location_id' => $stock['inventory_location_id'],
+                    ]
+                );
             }
 
             $this->showModal = false;
