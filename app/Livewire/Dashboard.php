@@ -338,11 +338,19 @@ class Dashboard extends Component
             $q->whereDate('created_at', today())->where('status', 'completed');
         })->with('product')->get();
 
+        $todaysSaleDiscounts = Sale::where('discount_amount', '>', '0')
+            ->whereDate('created_at', today())
+            ->where('status', 'completed')
+            ->sum('discount_amount');
         $this->todaysProfit = $todaysSaleItems->sum(function ($item) {
             // Use cost_price from sale_item if available, otherwise fallback to product cost_price
             $costPrice = $item->cost_price ?? $item->product->cost_price ?? 0;
-            return ($item->unit_price - $costPrice) * $item->quantity;
+            return (($item->unit_price - $costPrice) * $item->quantity);
         });
+
+        if ($todaysSaleDiscounts > 0) {
+            $this->todaysProfit -= $todaysSaleDiscounts;
+        }
 
         // Month's Profit
         $monthSaleItems = SaleItem::whereHas('sale', function ($q) {
@@ -351,10 +359,20 @@ class Dashboard extends Component
                 ->where('status', 'completed');
         })->with('product')->get();
 
+        $monthSaleDiscounts = Sale::where('discount_amount', '>', '0')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->where('status', 'completed')
+            ->sum('discount_amount');
+
         $this->monthProfit = $monthSaleItems->sum(function ($item) {
             $costPrice = $item->cost_price ?? $item->product->cost_price ?? 0;
-            return ($item->unit_price - $costPrice) * $item->quantity;
+            return (($item->unit_price - $costPrice) * $item->quantity);
         });
+
+        if ($monthSaleDiscounts > 0) {
+            $this->monthProfit -= $monthSaleDiscounts;
+        }
 
         // Year's Profit
         $yearSaleItems = SaleItem::whereHas('sale', function ($q) {
@@ -362,10 +380,19 @@ class Dashboard extends Component
                 ->where('status', 'completed');
         })->with('product')->get();
 
+        $yearSaleDiscounts = Sale::where('discount_amount', '>', '0')
+            ->whereYear('created_at', now()->year)
+            ->where('status', 'completed')
+            ->sum('discount_amount');
+
         $this->yearProfit = $yearSaleItems->sum(function ($item) {
             $costPrice = $item->cost_price ?? $item->product->cost_price ?? 0;
-            return ($item->unit_price - $costPrice) * $item->quantity;
+            return (($item->unit_price - $costPrice) * $item->quantity);
         });
+
+        if ($yearSaleDiscounts > 0) {
+            $this->yearProfit -= $yearSaleDiscounts;
+        }
 
         // Cost of Goods Sold (Year)
         $this->totalCostOfGoodsSold = $yearSaleItems->sum(function ($item) {
