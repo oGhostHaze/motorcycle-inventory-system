@@ -44,6 +44,8 @@ class Dashboard extends Component
     public $profitTrend = [];
     public $averageTransactionProfit = 0;
     public $totalCostOfGoodsSold = 0;
+    public $todaysCostOfGoodsSold = 0;
+    public $monthCostOfGoodsSold = 0;
 
     // DISCOUNT TRACKING PROPERTIES
     public $todaysDiscounts = 0;
@@ -353,6 +355,11 @@ class Dashboard extends Component
             return $item->total_price - ($costPrice * $item->quantity);
         });
 
+        $this->todaysCostOfGoodsSold = $todaysSaleItems->sum(function ($item) {
+            $costPrice = $item->cost_price ?? $item->product->cost_price ?? 0;
+            return $costPrice * $item->quantity;
+        });
+
         if ($this->todaysDiscounts > 0) {
             $this->todaysProfit -= $this->todaysDiscounts;
         }
@@ -372,6 +379,11 @@ class Dashboard extends Component
         $this->monthProfit = $monthSaleItems->sum(function ($item) {
             $costPrice = $item->cost_price ?? $item->product->cost_price ?? 0;
             return $item->total_price - ($costPrice * $item->quantity);
+        });
+
+        $this->monthCostOfGoodsSold = $monthSaleItems->sum(function ($item) {
+            $costPrice = $item->cost_price ?? $item->product->cost_price ?? 0;
+            return $costPrice * $item->quantity;
         });
 
         if ($this->monthDiscounts > 0) {
