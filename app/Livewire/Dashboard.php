@@ -45,6 +45,11 @@ class Dashboard extends Component
     public $averageTransactionProfit = 0;
     public $totalCostOfGoodsSold = 0;
 
+    // DISCOUNT TRACKING PROPERTIES
+    public $todaysDiscounts = 0;
+    public $monthDiscounts = 0;
+    public $yearDiscounts = 0;
+
     // Existing arrays
     public $recentSales = [];
     public $topProducts = [];
@@ -338,18 +343,18 @@ class Dashboard extends Component
             $q->whereDate('created_at', today())->where('status', 'completed');
         })->with('product')->get();
 
-        $todaysSaleDiscounts = Sale::where('discount_amount', '>', '0')
-            ->whereDate('created_at', today())
+        $this->todaysDiscounts = Sale::whereDate('created_at', today())
             ->where('status', 'completed')
             ->sum('discount_amount');
+
+        // Use total_price instead of unit_price * quantity to account for item-level adjustments
         $this->todaysProfit = $todaysSaleItems->sum(function ($item) {
-            // Use cost_price from sale_item if available, otherwise fallback to product cost_price
             $costPrice = $item->cost_price ?? $item->product->cost_price ?? 0;
-            return (($item->unit_price - $costPrice) * $item->quantity);
+            return $item->total_price - ($costPrice * $item->quantity);
         });
 
-        if ($todaysSaleDiscounts > 0) {
-            $this->todaysProfit -= $todaysSaleDiscounts;
+        if ($this->todaysDiscounts > 0) {
+            $this->todaysProfit -= $this->todaysDiscounts;
         }
 
         // Month's Profit
@@ -359,19 +364,18 @@ class Dashboard extends Component
                 ->where('status', 'completed');
         })->with('product')->get();
 
-        $monthSaleDiscounts = Sale::where('discount_amount', '>', '0')
-            ->whereMonth('created_at', now()->month)
+        $this->monthDiscounts = Sale::whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->where('status', 'completed')
             ->sum('discount_amount');
 
         $this->monthProfit = $monthSaleItems->sum(function ($item) {
             $costPrice = $item->cost_price ?? $item->product->cost_price ?? 0;
-            return (($item->unit_price - $costPrice) * $item->quantity);
+            return $item->total_price - ($costPrice * $item->quantity);
         });
 
-        if ($monthSaleDiscounts > 0) {
-            $this->monthProfit -= $monthSaleDiscounts;
+        if ($this->monthDiscounts > 0) {
+            $this->monthProfit -= $this->monthDiscounts;
         }
 
         // Year's Profit
@@ -380,18 +384,17 @@ class Dashboard extends Component
                 ->where('status', 'completed');
         })->with('product')->get();
 
-        $yearSaleDiscounts = Sale::where('discount_amount', '>', '0')
-            ->whereYear('created_at', now()->year)
+        $this->yearDiscounts = Sale::whereYear('created_at', now()->year)
             ->where('status', 'completed')
             ->sum('discount_amount');
 
         $this->yearProfit = $yearSaleItems->sum(function ($item) {
             $costPrice = $item->cost_price ?? $item->product->cost_price ?? 0;
-            return (($item->unit_price - $costPrice) * $item->quantity);
+            return $item->total_price - ($costPrice * $item->quantity);
         });
 
-        if ($yearSaleDiscounts > 0) {
-            $this->yearProfit -= $yearSaleDiscounts;
+        if ($this->yearDiscounts > 0) {
+            $this->yearProfit -= $this->yearDiscounts;
         }
 
         // Cost of Goods Sold (Year)
@@ -434,7 +437,7 @@ class Dashboard extends Component
                 foreach ($product->saleItems as $saleItem) {
                     // Use cost_price from sale_item if available, otherwise fallback to product cost_price
                     $costPrice = $saleItem->cost_price ?? $product->cost_price ?? 0;
-                    $totalProfit += ($saleItem->unit_price - $costPrice) * $saleItem->quantity;
+                    $totalProfit += $saleItem->total_price - ($costPrice * $saleItem->quantity);
                     $totalSold += $saleItem->quantity;
                 }
 
@@ -475,7 +478,7 @@ class Dashboard extends Component
                         ->get()
                         ->sum(function ($item) use ($product) {
                             $costPrice = $item->cost_price ?? $product->cost_price ?? 0;
-                            return ($item->unit_price - $costPrice) * $item->quantity;
+                            return $item->total_price - ($costPrice * $item->quantity);
                         });
 
                     $categoryProfit += $productProfit;
@@ -505,8 +508,15 @@ class Dashboard extends Component
                     ->where('status', 'completed');
             })->with('product')->get()->sum(function ($item) {
                 $costPrice = $item->cost_price ?? $item->product->cost_price ?? 0;
-                return ($item->unit_price - $costPrice) * $item->quantity;
+                return $item->total_price - ($costPrice * $item->quantity);
             });
+
+            // Subtract sale-level discounts from daily profit
+            $dailyDiscounts = Sale::whereDate('created_at', $date->format('Y-m-d'))
+                ->where('status', 'completed')
+                ->sum('discount_amount');
+
+            $profit -= $dailyDiscounts;
 
             $revenue = Sale::whereDate('created_at', $date->format('Y-m-d'))
                 ->where('status', 'completed')
