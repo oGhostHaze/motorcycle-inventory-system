@@ -70,6 +70,17 @@
             </x-slot:actions>
         </x-mary-stat>
 
+        {{-- Today's COGS --}}
+        <x-mary-stat title="Today's COGS" description="Cost of goods sold today"
+            value="₱{{ number_format($todaysCostOfGoodsSold, 2) }}" icon="o-calculator" color="text-accent"
+            class="shadow-lg bg-gradient-to-r from-accent/10 to-accent/5">
+            <x-slot:actions>
+                <div class="text-xs text-accent">
+                    Month: ₱{{ number_format($monthCostOfGoodsSold, 2) }}
+                </div>
+            </x-slot:actions>
+        </x-mary-stat>
+
         {{-- Low Stock Items --}}
         <x-mary-stat title="Low Stock Items" description="Require attention" value="{{ $lowStockItems }}"
             icon="o-exclamation-triangle" color="text-warning"
