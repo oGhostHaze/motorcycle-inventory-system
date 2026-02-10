@@ -59,6 +59,17 @@
             </x-slot:actions>
         </x-mary-stat>
 
+        {{-- Today's Discounts --}}
+        <x-mary-stat title="Today's Discounts" description="Total discounts today"
+            value="₱{{ number_format($todaysDiscounts, 2) }}" icon="o-tag" color="text-error"
+            class="shadow-lg bg-gradient-to-r from-error/10 to-error/5">
+            <x-slot:actions>
+                <div class="text-xs text-error">
+                    Month: ₱{{ number_format($monthDiscounts, 2) }}
+                </div>
+            </x-slot:actions>
+        </x-mary-stat>
+
         {{-- Low Stock Items --}}
         <x-mary-stat title="Low Stock Items" description="Require attention" value="{{ $lowStockItems }}"
             icon="o-exclamation-triangle" color="text-warning"
@@ -96,6 +107,10 @@
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">COGS:</span>
                     <span class="text-md">₱{{ number_format($totalCostOfGoodsSold, 2) }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-600">Total Discounts:</span>
+                    <span class="font-semibold text-md text-error">₱{{ number_format($yearDiscounts, 2) }}</span>
                 </div>
                 <div class="flex items-center justify-between pt-2 border-t">
                     <span class="text-sm font-semibold">Profit Margin:</span>
